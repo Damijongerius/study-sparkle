@@ -18,11 +18,14 @@ export type CardStatus = 'in-progress' | 'done' | 'redeemed';
 export interface StickerCard {
   id: string;
   name: string;
+  goal?: string; // Reward description for completing the card
   slots: number;
   stickers: OwnedSticker[];
   status: CardStatus;
   completedAt?: Date;
   redeemedAt?: Date;
+  givenBy?: string; // Username of who gave this card
+  givenTo?: string; // Username of who this card is for
 }
 
 export type ActivityType = 
@@ -147,6 +150,7 @@ const CARD_TEMPLATES = [
 ];
 
 const getStorageKey = (username?: string) => `cutesy-study-state${username ? `-${username.toLowerCase()}` : ''}`;
+const getGiftCardsKey = (username: string) => `cutesy-gift-cards-${username.toLowerCase()}`;
 
 const createNewCard = (index: number): StickerCard => {
   const template = CARD_TEMPLATES[Math.min(index, CARD_TEMPLATES.length - 1)];
@@ -156,6 +160,19 @@ const createNewCard = (index: number): StickerCard => {
     slots: template.slots,
     stickers: [],
     status: 'in-progress',
+  };
+};
+
+const createGiftCard = (name: string, goal: string, slots: number, givenBy: string, givenTo: string): StickerCard => {
+  return {
+    id: `gift-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    name,
+    goal,
+    slots,
+    stickers: [],
+    status: 'in-progress',
+    givenBy,
+    givenTo,
   };
 };
 
@@ -241,6 +258,40 @@ const getTodayDateString = () => {
 export const useStudyStore = (username?: string) => {
   const [state, setState] = useState<StudyState>(() => getInitialState(username));
   const [pendingSticker, setPendingSticker] = useState<string | null>(null);
+
+  // Check for gift cards from friends on mount
+  useEffect(() => {
+    if (!username) return;
+    
+    const giftCardsKey = getGiftCardsKey(username);
+    const stored = localStorage.getItem(giftCardsKey);
+    if (stored) {
+      try {
+        const giftCards: StickerCard[] = JSON.parse(stored).map((card: any) => ({
+          ...card,
+          stickers: card.stickers.map((s: any) => ({
+            ...s,
+            earnedAt: new Date(s.earnedAt),
+          })),
+          completedAt: card.completedAt ? new Date(card.completedAt) : undefined,
+          redeemedAt: card.redeemedAt ? new Date(card.redeemedAt) : undefined,
+        }));
+        
+        // Add gift cards that aren't already in state
+        const existingIds = new Set(state.stickerCards.map(c => c.id));
+        const newGiftCards = giftCards.filter(gc => !existingIds.has(gc.id));
+        
+        if (newGiftCards.length > 0) {
+          setState(prev => ({
+            ...prev,
+            stickerCards: [...newGiftCards, ...prev.stickerCards],
+          }));
+          // Clear the gift cards queue
+          localStorage.removeItem(giftCardsKey);
+        }
+      } catch {}
+    }
+  }, [username]);
 
   useEffect(() => {
     const storageKey = getStorageKey(username);
@@ -449,6 +500,22 @@ export const useStudyStore = (username?: string) => {
     return newCard;
   };
 
+  // Send a gift card to a friend
+  const sendGiftCard = (friendUsername: string, name: string, goal: string, slots: number): boolean => {
+    if (!username) return false;
+    
+    const giftCard = createGiftCard(name, goal, slots, username, friendUsername);
+    
+    // Store in friend's gift cards queue
+    const giftCardsKey = getGiftCardsKey(friendUsername);
+    const existing = localStorage.getItem(giftCardsKey);
+    const giftCards: StickerCard[] = existing ? JSON.parse(existing) : [];
+    giftCards.push(giftCard);
+    localStorage.setItem(giftCardsKey, JSON.stringify(giftCards));
+    
+    return true;
+  };
+
   // Redeem a completed card
   const redeemCard = (cardId: string): boolean => {
     const cardIndex = state.stickerCards.findIndex(c => c.id === cardId);
@@ -493,6 +560,7 @@ export const useStudyStore = (username?: string) => {
     confirmPurchase,
     cancelPurchase,
     createCard,
+    sendGiftCard,
     redeemCard,
     getAvailableCards,
     hasSticker,

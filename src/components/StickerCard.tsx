@@ -1,6 +1,6 @@
 import { StickerCard as StickerCardType, Sticker, CardStatus } from '@/hooks/useStudyStore';
 import { cn } from '@/lib/utils';
-import { Sparkles, Heart, ChevronLeft, ChevronRight, Check, Gift, Lock } from 'lucide-react';
+import { Sparkles, Heart, ChevronLeft, ChevronRight, Check, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +19,6 @@ const statusConfig: Record<CardStatus, { label: string; color: string; icon: Rea
 
 export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: StickerCardProps) => {
   const [currentCardIndex, setCurrentCardIndex] = useState(() => {
-    // Start on the first in-progress card
     const activeIndex = stickerCards.findIndex(c => c.status === 'in-progress');
     return activeIndex >= 0 ? activeIndex : 0;
   });
@@ -31,7 +30,6 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
   const totalSlots = currentCard.slots;
   const statusInfo = statusConfig[currentCard.status];
 
-  // Calculate grid columns based on slots
   const getGridCols = (slots: number) => {
     if (slots <= 9) return 3;
     if (slots <= 16) return 4;
@@ -40,7 +38,6 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
 
   const gridCols = getGridCols(totalSlots);
 
-  // Create slots array
   const slots = Array.from({ length: totalSlots }, (_, i) => {
     const owned = currentCard.stickers[i];
     if (owned) {
@@ -50,25 +47,20 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
   });
 
   const goToPrevCard = () => {
-    if (currentCardIndex > 0) {
-      setCurrentCardIndex(currentCardIndex - 1);
-    }
+    if (currentCardIndex > 0) setCurrentCardIndex(currentCardIndex - 1);
   };
 
   const goToNextCard = () => {
-    if (currentCardIndex < stickerCards.length - 1) {
-      setCurrentCardIndex(currentCardIndex + 1);
-    }
+    if (currentCardIndex < stickerCards.length - 1) setCurrentCardIndex(currentCardIndex + 1);
   };
 
-  // Count cards by status
   const inProgressCount = stickerCards.filter(c => c.status === 'in-progress').length;
   const doneCount = stickerCards.filter(c => c.status === 'done').length;
   const redeemedCount = stickerCards.filter(c => c.status === 'redeemed').length;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header - simplified */}
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-fredoka font-bold text-gradient-primary flex items-center justify-center gap-2">
           <Heart className="w-6 h-6 text-pink-medium fill-pink-medium" />
@@ -84,12 +76,7 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
 
       {/* Card Navigation */}
       <div className="flex items-center justify-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={goToPrevCard}
-          disabled={currentCardIndex === 0}
-        >
+        <Button variant="ghost" size="icon" onClick={goToPrevCard} disabled={currentCardIndex === 0}>
           <ChevronLeft className="w-5 h-5" />
         </Button>
         
@@ -112,33 +99,12 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
           ))}
         </div>
         
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={goToNextCard}
-          disabled={currentCardIndex === stickerCards.length - 1}
-        >
+        <Button variant="ghost" size="icon" onClick={goToNextCard} disabled={currentCardIndex === stickerCards.length - 1}>
           <ChevronRight className="w-5 h-5" />
         </Button>
       </div>
 
-      {/* Card Title & Status */}
-      <div className="text-center space-y-2">
-        <div className="flex items-center justify-center gap-2">
-          <h3 className="font-fredoka text-lg font-bold text-foreground">
-            {currentCard.name}
-          </h3>
-          <Badge className={cn("text-xs", statusInfo.color)}>
-            {statusInfo.icon}
-            <span className="ml-1">{statusInfo.label}</span>
-          </Badge>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {collectedCount} of {totalSlots} stickers
-        </p>
-      </div>
-
-      {/* Sticker Card */}
+      {/* Sticker Card - with title inside */}
       <div className="relative max-w-md mx-auto">
         <div className={cn(
           "bg-gradient-card rounded-3xl p-6 border-4",
@@ -146,31 +112,39 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
           currentCard.status === 'done' ? "border-mint" : "border-primary/30",
           "shadow-float relative overflow-hidden"
         )}>
-          {/* Status badge */}
-          {currentCard.status !== 'in-progress' && (
-            <div className={cn(
-              "absolute top-4 right-4 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1",
-              currentCard.status === 'redeemed' ? "bg-lavender text-purple-700" : "bg-mint text-mint-deep"
-            )}>
-              {currentCard.status === 'redeemed' ? (
-                <>
-                  <Gift className="w-4 h-4" />
-                  Redeemed
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  Complete!
-                </>
-              )}
+          {/* Card Title & Status - now inside the card */}
+          <div className="text-center mb-4">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <h3 className="font-fredoka text-xl font-bold text-foreground">
+                {currentCard.name}
+              </h3>
+              <Badge className={cn("text-xs", statusInfo.color)}>
+                {statusInfo.icon}
+                <span className="ml-1">{statusInfo.label}</span>
+              </Badge>
             </div>
-          )}
+            
+            {/* Show goal/reward if exists */}
+            {currentCard.goal && (
+              <div className="bg-primary/10 rounded-xl px-3 py-2 mt-2">
+                <p className="text-sm font-medium text-primary">🎁 Reward:</p>
+                <p className="text-sm text-foreground">{currentCard.goal}</p>
+              </div>
+            )}
+            
+            {/* Show who gave the card */}
+            {currentCard.givenBy && (
+              <p className="text-xs text-muted-foreground mt-1">
+                From: {currentCard.givenBy} 💝
+              </p>
+            )}
+          </div>
 
           {/* Decorative elements */}
           <div className="absolute top-2 left-2">
             <Sparkles className="w-5 h-5 text-yellow-soft animate-sparkle" />
           </div>
-          <div className="absolute bottom-2 right-2">
+          <div className="absolute top-2 right-2">
             <Sparkles className="w-4 h-4 text-pink-medium animate-sparkle" style={{ animationDelay: '0.7s' }} />
           </div>
 
@@ -219,7 +193,7 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
                 ? "🎁 This card has been redeemed!"
                 : currentCard.status === 'done'
                   ? "🎉 Ready to redeem!"
-                  : `${totalSlots - collectedCount} more to complete this card!`}
+                  : `${totalSlots - collectedCount} more to complete!`}
             </p>
           </div>
         </div>

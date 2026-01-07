@@ -7,13 +7,16 @@ import { StatsDisplay } from '@/components/StatsDisplay';
 import { Celebration } from '@/components/Celebration';
 import { CardSelectModal } from '@/components/CardSelectModal';
 import { ActivityLog } from '@/components/ActivityLog';
+import { FriendsManager } from '@/components/FriendsManager';
+import { CreateGiftCard } from '@/components/CreateGiftCard';
 import { useStudyStore } from '@/hooks/useStudyStore';
+import { Friend } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { BookOpen, ShoppingBag, Sparkles, Heart, ScrollText, LogOut } from 'lucide-react';
+import { BookOpen, ShoppingBag, Sparkles, Heart, ScrollText, LogOut, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-type Tab = 'study' | 'shop' | 'collection' | 'log';
+type Tab = 'study' | 'shop' | 'collection' | 'log' | 'friends';
 
 interface TimerState {
   isRunning: boolean;
@@ -22,8 +25,11 @@ interface TimerState {
 }
 
 interface IndexProps {
-  user: { username: string };
+  user: { username: string; friendCode: string };
+  friends: Friend[];
   onLogout: () => void;
+  onAddFriend: (code: string) => { success: boolean; error?: string };
+  onRemoveFriend: (friendCode: string) => void;
 }
 
 const pageVariants = {
@@ -38,10 +44,11 @@ const tabContentVariants = {
   exit: { opacity: 0, x: -20 },
 };
 
-const Index = ({ user, onLogout }: IndexProps) => {
+const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexProps) => {
   const [activeTab, setActiveTab] = useState<Tab>('study');
   const [showCelebration, setShowCelebration] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
+  const [giftingTo, setGiftingTo] = useState<string | null>(null);
   const timerRef = useRef<TimerState | null>(null);
 
   const store = useStudyStore(user.username);
@@ -59,27 +66,19 @@ const Index = ({ user, onLogout }: IndexProps) => {
   const handleSelectCard = useCallback((cardId: string) => {
     const success = store.confirmPurchase(cardId);
     if (success) {
-      toast.success('Sticker added! 🎉', {
-        description: 'Check your sticker card to see it!',
-      });
+      toast.success('Sticker added! 🎉', { description: 'Check your sticker card to see it!' });
     }
   }, [store]);
 
   const handleCreateCardAndAdd = useCallback(() => {
     const newCard = store.createCard();
     const success = store.confirmPurchase(newCard.id);
-    if (success) {
-      toast.success('New card created with your sticker! 🌟');
-    }
+    if (success) toast.success('New card created with your sticker! 🌟');
   }, [store]);
 
   const handleRedeemCard = useCallback((cardId: string) => {
     const success = store.redeemCard(cardId);
-    if (success) {
-      toast.success('Card redeemed! 🎁', {
-        description: 'Congratulations on completing your collection!',
-      });
-    }
+    if (success) toast.success('Card redeemed! 🎁', { description: 'Congratulations on completing your collection!' });
   }, [store]);
 
   const handleTabChange = useCallback((newTab: Tab) => {
@@ -87,9 +86,7 @@ const Index = ({ user, onLogout }: IndexProps) => {
       timerRef.current.setIsRunning(false);
       timerRef.current.applyPausePenalty();
       store.logPause();
-      toast('⏸️ Timer paused! -5 points', {
-        description: 'Your progress is saved, come back soon! 💪',
-      });
+      toast('⏸️ Timer paused! -5 points', { description: 'Your progress is saved, come back soon! 💪' });
     }
     setActiveTab(newTab);
   }, [activeTab, store]);
@@ -98,11 +95,23 @@ const Index = ({ user, onLogout }: IndexProps) => {
     timerRef.current = timer;
   }, []);
 
+  const handleGiftCard = (friendUsername: string) => setGiftingTo(friendUsername);
+
+  const handleCreateGiftCard = (name: string, goal: string, slots: number) => {
+    if (!giftingTo) return;
+    const success = store.sendGiftCard(giftingTo, name, goal, slots);
+    if (success) {
+      toast.success(`Gift card sent to ${giftingTo}! 🎁`);
+      setGiftingTo(null);
+    }
+  };
+
   const tabs = [
     { id: 'study' as Tab, label: 'Study', icon: BookOpen, emoji: '📚' },
     { id: 'shop' as Tab, label: 'Shop', icon: ShoppingBag, emoji: '🛍️' },
     { id: 'collection' as Tab, label: 'Stickers', icon: Sparkles, emoji: '✨' },
     { id: 'log' as Tab, label: 'Log', icon: ScrollText, emoji: '📝' },
+    { id: 'friends' as Tab, label: 'Friends', icon: Users, emoji: '👥' },
   ];
 
   return (
@@ -322,6 +331,33 @@ const Index = ({ user, onLogout }: IndexProps) => {
                     onTriggerReminder={store.triggerReminder}
                     getDueReminders={store.getDueReminders}
                   />
+                </motion.div>
+              )}
+
+              {activeTab === 'friends' && (
+                <motion.div
+                  key="friends"
+                  variants={tabContentVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={{ duration: 0.3 }}
+                >
+                  {giftingTo ? (
+                    <CreateGiftCard
+                      friendUsername={giftingTo}
+                      onCancel={() => setGiftingTo(null)}
+                      onCreateCard={handleCreateGiftCard}
+                    />
+                  ) : (
+                    <FriendsManager
+                      friendCode={user.friendCode}
+                      friends={friends}
+                      onAddFriend={onAddFriend}
+                      onRemoveFriend={onRemoveFriend}
+                      onGiftCard={handleGiftCard}
+                    />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
