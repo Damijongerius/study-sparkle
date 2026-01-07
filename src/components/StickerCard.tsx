@@ -1,27 +1,35 @@
-import { StickerCard as StickerCardType, Sticker } from '@/hooks/useStudyStore';
+import { StickerCard as StickerCardType, Sticker, CardStatus } from '@/hooks/useStudyStore';
 import { cn } from '@/lib/utils';
-import { Sparkles, Heart, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { Sparkles, Heart, ChevronLeft, ChevronRight, Check, Gift, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 
 interface StickerCardProps {
   stickerCards: StickerCardType[];
   allStickers: Sticker[];
+  onRedeemCard?: (cardId: string) => void;
 }
 
-export const StickerCard = ({ stickerCards, allStickers }: StickerCardProps) => {
+const statusConfig: Record<CardStatus, { label: string; color: string; icon: React.ReactNode }> = {
+  'in-progress': { label: 'In Progress', color: 'bg-primary/20 text-primary', icon: <Sparkles className="w-3 h-3" /> },
+  'done': { label: 'Complete!', color: 'bg-mint text-mint-deep', icon: <Check className="w-3 h-3" /> },
+  'redeemed': { label: 'Redeemed', color: 'bg-lavender text-purple-700', icon: <Gift className="w-3 h-3" /> },
+};
+
+export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: StickerCardProps) => {
   const [currentCardIndex, setCurrentCardIndex] = useState(() => {
-    // Start on the active (incomplete) card
-    const activeIndex = stickerCards.findIndex(c => !c.completedAt);
-    return activeIndex >= 0 ? activeIndex : stickerCards.length - 1;
+    // Start on the first in-progress card
+    const activeIndex = stickerCards.findIndex(c => c.status === 'in-progress');
+    return activeIndex >= 0 ? activeIndex : 0;
   });
 
   const currentCard = stickerCards[currentCardIndex];
   if (!currentCard) return null;
 
-  const isCompleted = !!currentCard.completedAt;
   const collectedCount = currentCard.stickers.length;
   const totalSlots = currentCard.slots;
+  const statusInfo = statusConfig[currentCard.status];
 
   // Calculate grid columns based on slots
   const getGridCols = (slots: number) => {
@@ -53,6 +61,11 @@ export const StickerCard = ({ stickerCards, allStickers }: StickerCardProps) => 
     }
   };
 
+  // Count cards by status
+  const inProgressCount = stickerCards.filter(c => c.status === 'in-progress').length;
+  const doneCount = stickerCards.filter(c => c.status === 'done').length;
+  const redeemedCount = stickerCards.filter(c => c.status === 'redeemed').length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -62,9 +75,11 @@ export const StickerCard = ({ stickerCards, allStickers }: StickerCardProps) => 
           My Sticker Collection
           <Heart className="w-6 h-6 text-pink-medium fill-pink-medium" />
         </h2>
-        <p className="text-muted-foreground">
-          {stickerCards.filter(c => c.completedAt).length} cards completed!
-        </p>
+        <div className="flex justify-center gap-3 text-sm">
+          <span className="text-muted-foreground">📝 {inProgressCount} in progress</span>
+          <span className="text-muted-foreground">✅ {doneCount} complete</span>
+          <span className="text-muted-foreground">🎁 {redeemedCount} redeemed</span>
+        </div>
       </div>
 
       {/* Card Navigation */}
@@ -78,7 +93,7 @@ export const StickerCard = ({ stickerCards, allStickers }: StickerCardProps) => 
           <ChevronLeft className="w-5 h-5" />
         </Button>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-center max-w-xs">
           {stickerCards.map((card, index) => (
             <button
               key={card.id}
@@ -87,9 +102,11 @@ export const StickerCard = ({ stickerCards, allStickers }: StickerCardProps) => 
                 "w-3 h-3 rounded-full transition-all",
                 index === currentCardIndex 
                   ? "bg-primary scale-125" 
-                  : card.completedAt 
-                    ? "bg-mint" 
-                    : "bg-muted"
+                  : card.status === 'redeemed'
+                    ? "bg-lavender"
+                    : card.status === 'done' 
+                      ? "bg-mint" 
+                      : "bg-muted"
               )}
             />
           ))}
@@ -105,12 +122,17 @@ export const StickerCard = ({ stickerCards, allStickers }: StickerCardProps) => 
         </Button>
       </div>
 
-      {/* Card Title */}
-      <div className="text-center">
-        <h3 className="font-fredoka text-lg font-bold text-foreground flex items-center justify-center gap-2">
-          {currentCard.name}
-          {isCompleted && <Check className="w-5 h-5 text-mint-deep" />}
-        </h3>
+      {/* Card Title & Status */}
+      <div className="text-center space-y-2">
+        <div className="flex items-center justify-center gap-2">
+          <h3 className="font-fredoka text-lg font-bold text-foreground">
+            {currentCard.name}
+          </h3>
+          <Badge className={cn("text-xs", statusInfo.color)}>
+            {statusInfo.icon}
+            <span className="ml-1">{statusInfo.label}</span>
+          </Badge>
+        </div>
         <p className="text-sm text-muted-foreground">
           {collectedCount} of {totalSlots} stickers
         </p>
@@ -120,14 +142,27 @@ export const StickerCard = ({ stickerCards, allStickers }: StickerCardProps) => 
       <div className="relative max-w-md mx-auto">
         <div className={cn(
           "bg-gradient-card rounded-3xl p-6 border-4",
-          isCompleted ? "border-mint" : "border-primary/30",
+          currentCard.status === 'redeemed' ? "border-lavender" :
+          currentCard.status === 'done' ? "border-mint" : "border-primary/30",
           "shadow-float relative overflow-hidden"
         )}>
-          {/* Completed badge */}
-          {isCompleted && (
-            <div className="absolute top-4 right-4 bg-mint text-mint-deep px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
-              <Check className="w-4 h-4" />
-              Complete!
+          {/* Status badge */}
+          {currentCard.status !== 'in-progress' && (
+            <div className={cn(
+              "absolute top-4 right-4 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1",
+              currentCard.status === 'redeemed' ? "bg-lavender text-purple-700" : "bg-mint text-mint-deep"
+            )}>
+              {currentCard.status === 'redeemed' ? (
+                <>
+                  <Gift className="w-4 h-4" />
+                  Redeemed
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  Complete!
+                </>
+              )}
             </div>
           )}
 
@@ -173,18 +208,36 @@ export const StickerCard = ({ stickerCards, allStickers }: StickerCardProps) => 
               <div
                 className={cn(
                   "h-full rounded-full transition-all duration-500",
-                  isCompleted ? "bg-mint" : "bg-gradient-primary"
+                  currentCard.status === 'redeemed' ? "bg-lavender" :
+                  currentCard.status === 'done' ? "bg-mint" : "bg-gradient-primary"
                 )}
                 style={{ width: `${(collectedCount / totalSlots) * 100}%` }}
               />
             </div>
             <p className="text-center text-sm text-muted-foreground">
-              {isCompleted
-                ? "🎉 Card Complete! You're amazing!"
-                : `${totalSlots - collectedCount} more to complete this card!`}
+              {currentCard.status === 'redeemed'
+                ? "🎁 This card has been redeemed!"
+                : currentCard.status === 'done'
+                  ? "🎉 Ready to redeem!"
+                  : `${totalSlots - collectedCount} more to complete this card!`}
             </p>
           </div>
         </div>
+
+        {/* Redeem Button for completed cards */}
+        {currentCard.status === 'done' && onRedeemCard && (
+          <div className="mt-4 text-center">
+            <Button 
+              variant="cute" 
+              size="lg" 
+              onClick={() => onRedeemCard(currentCard.id)}
+              className="animate-bounce-soft"
+            >
+              <Gift className="w-5 h-5 mr-2" />
+              Redeem This Card!
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Total Stats */}

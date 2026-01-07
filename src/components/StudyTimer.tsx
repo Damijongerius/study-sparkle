@@ -12,12 +12,13 @@ import {
 import { toast } from 'sonner';
 
 interface StudyTimerProps {
-  onComplete: (minutes: number, points: number) => void;
+  onComplete: (minutes: number, points: number, effectiveness?: number) => void;
   registerTimer?: (timer: { 
     isRunning: boolean; 
     setIsRunning: (running: boolean) => void;
     applyPausePenalty: () => void;
   }) => void;
+  onPause?: () => void;
 }
 
 const TIME_OPTIONS = [
@@ -70,7 +71,7 @@ const playAlarmSound = () => {
   playChime(783.99, now + 0.3, 0.6);  // G5
 };
 
-export const StudyTimer = ({ onComplete, registerTimer }: StudyTimerProps) => {
+export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerProps) => {
   const [selectedTime, setSelectedTime] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -133,6 +134,7 @@ export const StudyTimer = ({ onComplete, registerTimer }: StudyTimerProps) => {
       if (isRunning) {
         // Pausing - apply penalty
         applyPausePenalty();
+        onPause?.();
         toast('⏸️ Paused! -5 points', {
           description: 'Try to stay focused! 💪',
         });
@@ -149,10 +151,10 @@ export const StudyTimer = ({ onComplete, registerTimer }: StudyTimerProps) => {
     }
   };
 
-  const handleEffectivenessSelect = (modifier: number) => {
+  const handleEffectivenessSelect = (modifier: number, effectivenessIndex: number) => {
     if (pendingCompletion) {
       const finalPoints = Math.round(pendingCompletion.points * modifier);
-      onComplete(pendingCompletion.minutes, finalPoints);
+      onComplete(pendingCompletion.minutes, finalPoints, 5 - effectivenessIndex); // 5 = super effective, 1 = not effective
       setPendingCompletion(null);
       setShowEffectivenessDialog(false);
       setPausePenalty(0);
@@ -300,7 +302,7 @@ export const StudyTimer = ({ onComplete, registerTimer }: StudyTimerProps) => {
                 key={index}
                 variant="outline"
                 className="w-full justify-between h-auto py-4 px-6 hover:bg-primary/10 hover:border-primary"
-                onClick={() => handleEffectivenessSelect(option.modifier)}
+                onClick={() => handleEffectivenessSelect(option.modifier, index)}
               >
                 <span className="text-lg">{option.label}</span>
                 <span className="text-sm text-muted-foreground">{option.description}</span>

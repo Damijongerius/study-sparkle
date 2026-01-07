@@ -1,16 +1,18 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { StudyTimer } from '@/components/StudyTimer';
 import { StickerShop } from '@/components/StickerShop';
 import { StickerCard } from '@/components/StickerCard';
 import { StatsDisplay } from '@/components/StatsDisplay';
 import { Celebration } from '@/components/Celebration';
+import { CardSelectModal } from '@/components/CardSelectModal';
+import { ActivityLog } from '@/components/ActivityLog';
 import { useStudyStore } from '@/hooks/useStudyStore';
 import { Button } from '@/components/ui/button';
-import { BookOpen, ShoppingBag, Sparkles, Heart } from 'lucide-react';
+import { BookOpen, ShoppingBag, Sparkles, Heart, ScrollText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-type Tab = 'study' | 'shop' | 'collection';
+type Tab = 'study' | 'shop' | 'collection' | 'log';
 
 interface TimerState {
   isRunning: boolean;
@@ -26,14 +28,40 @@ const Index = () => {
 
   const store = useStudyStore();
 
-  const handleStudyComplete = useCallback((minutes: number, points: number) => {
-    store.addPoints(points, minutes);
+  const handleStudyComplete = useCallback((minutes: number, points: number, effectiveness?: number) => {
+    store.addPoints(points, minutes, effectiveness);
     setEarnedPoints(points);
     setShowCelebration(true);
   }, [store]);
 
   const handlePurchase = useCallback((stickerId: string) => {
-    return store.purchaseSticker(stickerId);
+    return store.initiatePurchase(stickerId);
+  }, [store]);
+
+  const handleSelectCard = useCallback((cardId: string) => {
+    const success = store.confirmPurchase(cardId);
+    if (success) {
+      toast.success('Sticker added! 🎉', {
+        description: 'Check your sticker card to see it!',
+      });
+    }
+  }, [store]);
+
+  const handleCreateCardAndAdd = useCallback(() => {
+    const newCard = store.createCard();
+    const success = store.confirmPurchase(newCard.id);
+    if (success) {
+      toast.success('New card created with your sticker! 🌟');
+    }
+  }, [store]);
+
+  const handleRedeemCard = useCallback((cardId: string) => {
+    const success = store.redeemCard(cardId);
+    if (success) {
+      toast.success('Card redeemed! 🎁', {
+        description: 'Congratulations on completing your collection!',
+      });
+    }
   }, [store]);
 
   const handleTabChange = useCallback((newTab: Tab) => {
@@ -41,12 +69,13 @@ const Index = () => {
     if (activeTab === 'study' && newTab !== 'study' && timerRef.current?.isRunning) {
       timerRef.current.setIsRunning(false);
       timerRef.current.applyPausePenalty();
+      store.logPause();
       toast('⏸️ Timer paused! -5 points', {
         description: 'Your progress is saved, come back soon! 💪',
       });
     }
     setActiveTab(newTab);
-  }, [activeTab]);
+  }, [activeTab, store]);
 
   const registerTimer = useCallback((timer: TimerState) => {
     timerRef.current = timer;
@@ -56,6 +85,7 @@ const Index = () => {
     { id: 'study' as Tab, label: 'Study', icon: BookOpen, emoji: '📚' },
     { id: 'shop' as Tab, label: 'Shop', icon: ShoppingBag, emoji: '🛍️' },
     { id: 'collection' as Tab, label: 'Stickers', icon: Sparkles, emoji: '✨' },
+    { id: 'log' as Tab, label: 'Log', icon: ScrollText, emoji: '📝' },
   ];
 
   return (
@@ -88,7 +118,7 @@ const Index = () => {
 
       {/* Tab Navigation */}
       <nav className="px-4 mb-8">
-        <div className="max-w-md mx-auto flex gap-2 p-2 bg-card rounded-2xl shadow-soft border-2 border-primary/10">
+        <div className="max-w-lg mx-auto flex gap-2 p-2 bg-card rounded-2xl shadow-soft border-2 border-primary/10">
           {tabs.map((tab) => (
             <Button
               key={tab.id}
@@ -123,7 +153,11 @@ const Index = () => {
                     Pick a study block and earn points!
                   </p>
                 </div>
-                <StudyTimer onComplete={handleStudyComplete} registerTimer={registerTimer} />
+                <StudyTimer 
+                  onComplete={handleStudyComplete} 
+                  registerTimer={registerTimer}
+                  onPause={() => store.logPause()}
+                />
               </div>
             )}
 
@@ -143,6 +177,14 @@ const Index = () => {
               <StickerCard
                 stickerCards={store.stickerCards}
                 allStickers={store.stickers}
+                onRedeemCard={handleRedeemCard}
+              />
+            )}
+
+            {activeTab === 'log' && (
+              <ActivityLog
+                logs={store.activityLogs}
+                onAddJournalEntry={store.addJournalEntry}
               />
             )}
           </div>
@@ -159,6 +201,16 @@ const Index = () => {
         show={showCelebration}
         points={earnedPoints}
         onComplete={() => setShowCelebration(false)}
+      />
+
+      {/* Card Selection Modal */}
+      <CardSelectModal
+        open={!!store.pendingSticker}
+        sticker={store.pendingStickerData}
+        availableCards={store.getAvailableCards()}
+        onSelectCard={handleSelectCard}
+        onCreateCard={handleCreateCardAndAdd}
+        onCancel={store.cancelPurchase}
       />
     </div>
   );
