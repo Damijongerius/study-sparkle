@@ -2,6 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, RotateCcw, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 interface StudyTimerProps {
   onComplete: (minutes: number, points: number) => void;
@@ -22,11 +30,49 @@ const ENCOURAGEMENTS = [
   "Study queen energy! 👑",
 ];
 
+const EFFECTIVENESS_OPTIONS = [
+  { label: 'Super effective! 🌟', emoji: '🌟', modifier: 1.05, description: '+5% bonus points!' },
+  { label: 'Pretty good! ✨', emoji: '✨', modifier: 1.0, description: 'Full points!' },
+  { label: 'It was okay 🌸', emoji: '🌸', modifier: 0.9, description: '-10% points' },
+  { label: 'Could be better 🌱', emoji: '🌱', modifier: 0.85, description: '-15% points' },
+  { label: 'Not very effective 😔', emoji: '😔', modifier: 0.8, description: '-20% points' },
+];
+
+const playAlarmSound = () => {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  
+  const playChime = (frequency: number, startTime: number, duration: number) => {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+    
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration);
+  };
+  
+  const now = audioContext.currentTime;
+  playChime(523.25, now, 0.4);        // C5
+  playChime(659.25, now + 0.15, 0.4); // E5
+  playChime(783.99, now + 0.3, 0.6);  // G5
+};
+
 export const StudyTimer = ({ onComplete }: StudyTimerProps) => {
   const [selectedTime, setSelectedTime] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [encouragement, setEncouragement] = useState(ENCOURAGEMENTS[0]);
+  const [pausePenalty, setPausePenalty] = useState(0);
+  const [showEffectivenessDialog, setShowEffectivenessDialog] = useState(false);
+  const [pendingCompletion, setPendingCompletion] = useState<{ minutes: number; points: number } | null>(null);
 
   const selectedOption = TIME_OPTIONS.find(t => t.minutes === selectedTime);
 
@@ -39,11 +85,14 @@ export const StudyTimer = ({ onComplete }: StudyTimerProps) => {
       }, 1000);
     } else if (timeLeft === 0 && isRunning && selectedOption) {
       setIsRunning(false);
-      onComplete(selectedOption.minutes, selectedOption.points);
+      playAlarmSound();
+      const basePoints = Math.max(0, selectedOption.points - pausePenalty);
+      setPendingCompletion({ minutes: selectedOption.minutes, points: basePoints });
+      setShowEffectivenessDialog(true);
     }
 
     return () => clearInterval(interval);
-  }, [isRunning, timeLeft, selectedOption, onComplete]);
+  }, [isRunning, timeLeft, selectedOption, pausePenalty]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -56,10 +105,18 @@ export const StudyTimer = ({ onComplete }: StudyTimerProps) => {
     setSelectedTime(minutes);
     setTimeLeft(minutes * 60);
     setIsRunning(false);
+    setPausePenalty(0);
   }, []);
 
   const toggleTimer = () => {
     if (selectedTime) {
+      if (isRunning) {
+        // Pausing - apply penalty
+        setPausePenalty(prev => prev + 5);
+        toast('⏸️ Paused! -5 points', {
+          description: 'Try to stay focused! 💪',
+        });
+      }
       setIsRunning(!isRunning);
     }
   };
@@ -68,6 +125,17 @@ export const StudyTimer = ({ onComplete }: StudyTimerProps) => {
     if (selectedTime) {
       setTimeLeft(selectedTime * 60);
       setIsRunning(false);
+      setPausePenalty(0);
+    }
+  };
+
+  const handleEffectivenessSelect = (modifier: number) => {
+    if (pendingCompletion) {
+      const finalPoints = Math.round(pendingCompletion.points * modifier);
+      onComplete(pendingCompletion.minutes, finalPoints);
+      setPendingCompletion(null);
+      setShowEffectivenessDialog(false);
+      setPausePenalty(0);
     }
   };
 
@@ -139,6 +207,11 @@ export const StudyTimer = ({ onComplete }: StudyTimerProps) => {
                 {selectedOption.emoji} {selectedOption.label}
               </div>
             )}
+            {pausePenalty > 0 && (
+              <div className="text-sm text-destructive mt-1">
+                -{pausePenalty} pause penalty
+              </div>
+            )}
           </div>
         </div>
 
@@ -189,6 +262,33 @@ export const StudyTimer = ({ onComplete }: StudyTimerProps) => {
           {encouragement}
         </p>
       )}
+
+      {/* Effectiveness Rating Dialog */}
+      <Dialog open={showEffectivenessDialog} onOpenChange={setShowEffectivenessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl font-fredoka">
+              🎉 Study Session Complete!
+            </DialogTitle>
+            <DialogDescription className="text-center text-lg">
+              How effective was your study session?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            {EFFECTIVENESS_OPTIONS.map((option, index) => (
+              <Button
+                key={index}
+                variant="outline"
+                className="w-full justify-between h-auto py-4 px-6 hover:bg-primary/10 hover:border-primary"
+                onClick={() => handleEffectivenessSelect(option.modifier)}
+              >
+                <span className="text-lg">{option.label}</span>
+                <span className="text-sm text-muted-foreground">{option.description}</span>
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
