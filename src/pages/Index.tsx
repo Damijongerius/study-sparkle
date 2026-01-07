@@ -12,11 +12,17 @@ import { CreateGiftCard } from '@/components/CreateGiftCard';
 import { useStudyStore } from '@/hooks/useStudyStore';
 import { Friend } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { BookOpen, ShoppingBag, Sparkles, Heart, ScrollText, LogOut, Users } from 'lucide-react';
+import { BookOpen, ShoppingBag, Sparkles, Heart, ScrollText, LogOut, Users, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-type Tab = 'study' | 'shop' | 'collection' | 'log' | 'friends';
+type Tab = 'study' | 'shop' | 'collection' | 'log';
 
 interface TimerState {
   isRunning: boolean;
@@ -49,6 +55,7 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
   const [showCelebration, setShowCelebration] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [giftingTo, setGiftingTo] = useState<string | null>(null);
+  const [showFriends, setShowFriends] = useState(false);
   const timerRef = useRef<TimerState | null>(null);
 
   const store = useStudyStore(user.username);
@@ -111,7 +118,6 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
     { id: 'shop' as Tab, label: 'Shop', icon: ShoppingBag, emoji: '🛍️' },
     { id: 'collection' as Tab, label: 'Stickers', icon: Sparkles, emoji: '✨' },
     { id: 'log' as Tab, label: 'Log', icon: ScrollText, emoji: '📝' },
-    { id: 'friends' as Tab, label: 'Friends', icon: Users, emoji: '👥' },
   ];
 
   return (
@@ -137,21 +143,41 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
               <span className="text-lg">👋</span>
             </motion.div>
             <motion.div
+              className="flex items-center gap-2"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
             >
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                onClick={onLogout}
-                className="gap-2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowFriends(true)}
+                className="gap-2"
               >
-                <LogOut className="w-4 h-4" />
-                Logout
+                <Users className="w-4 h-4" />
+                Friends
+                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                  {friends.length}
+                </span>
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-4 h-4 text-primary" />
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem className="text-muted-foreground cursor-default">
+                    {user.username}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onLogout} className="text-destructive cursor-pointer">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </motion.div>
           </div>
           <motion.div 
@@ -334,32 +360,6 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
                 </motion.div>
               )}
 
-              {activeTab === 'friends' && (
-                <motion.div
-                  key="friends"
-                  variants={tabContentVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  transition={{ duration: 0.3 }}
-                >
-                  {giftingTo ? (
-                    <CreateGiftCard
-                      friendUsername={giftingTo}
-                      onCancel={() => setGiftingTo(null)}
-                      onCreateCard={handleCreateGiftCard}
-                    />
-                  ) : (
-                    <FriendsManager
-                      friendCode={user.friendCode}
-                      friends={friends}
-                      onAddFriend={onAddFriend}
-                      onRemoveFriend={onRemoveFriend}
-                      onGiftCard={handleGiftCard}
-                    />
-                  )}
-                </motion.div>
-              )}
             </AnimatePresence>
           </motion.div>
         </div>
@@ -391,6 +391,50 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
         onCreateCard={handleCreateCardAndAdd}
         onCancel={store.cancelPurchase}
       />
+
+      {/* Friends Panel */}
+      <AnimatePresence>
+        {showFriends && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowFriends(false)}
+          >
+            <motion.div
+              className="fixed right-0 top-0 h-full w-full max-w-md bg-card border-l shadow-xl p-6 overflow-y-auto"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-fredoka font-bold">Friends 👥</h2>
+                <Button variant="ghost" size="sm" onClick={() => setShowFriends(false)}>
+                  ✕
+                </Button>
+              </div>
+              {giftingTo ? (
+                <CreateGiftCard
+                  friendUsername={giftingTo}
+                  onCancel={() => setGiftingTo(null)}
+                  onCreateCard={handleCreateGiftCard}
+                />
+              ) : (
+                <FriendsManager
+                  friendCode={user.friendCode}
+                  friends={friends}
+                  onAddFriend={onAddFriend}
+                  onRemoveFriend={onRemoveFriend}
+                  onGiftCard={handleGiftCard}
+                />
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
