@@ -13,6 +13,11 @@ import { toast } from 'sonner';
 
 interface StudyTimerProps {
   onComplete: (minutes: number, points: number) => void;
+  registerTimer?: (timer: { 
+    isRunning: boolean; 
+    setIsRunning: (running: boolean) => void;
+    applyPausePenalty: () => void;
+  }) => void;
 }
 
 const TIME_OPTIONS = [
@@ -65,7 +70,7 @@ const playAlarmSound = () => {
   playChime(783.99, now + 0.3, 0.6);  // G5
 };
 
-export const StudyTimer = ({ onComplete }: StudyTimerProps) => {
+export const StudyTimer = ({ onComplete, registerTimer }: StudyTimerProps) => {
   const [selectedTime, setSelectedTime] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -75,6 +80,21 @@ export const StudyTimer = ({ onComplete }: StudyTimerProps) => {
   const [pendingCompletion, setPendingCompletion] = useState<{ minutes: number; points: number } | null>(null);
 
   const selectedOption = TIME_OPTIONS.find(t => t.minutes === selectedTime);
+
+  const applyPausePenalty = useCallback(() => {
+    setPausePenalty(prev => prev + 5);
+  }, []);
+
+  // Register timer with parent
+  useEffect(() => {
+    if (registerTimer) {
+      registerTimer({
+        isRunning,
+        setIsRunning,
+        applyPausePenalty,
+      });
+    }
+  }, [isRunning, registerTimer, applyPausePenalty]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -112,7 +132,7 @@ export const StudyTimer = ({ onComplete }: StudyTimerProps) => {
     if (selectedTime) {
       if (isRunning) {
         // Pausing - apply penalty
-        setPausePenalty(prev => prev + 5);
+        applyPausePenalty();
         toast('⏸️ Paused! -5 points', {
           description: 'Try to stay focused! 💪',
         });

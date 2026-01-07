@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Sticker } from '@/hooks/useStudyStore';
 import { cn } from '@/lib/utils';
-import { ShoppingBag, Check } from 'lucide-react';
+import { ShoppingBag, Check, Clock } from 'lucide-react';
 
 interface StickerShopProps {
   stickers: Sticker[];
@@ -9,24 +9,38 @@ interface StickerShopProps {
   onPurchase: (stickerId: string) => boolean;
   hasSticker: (stickerId: string) => boolean;
   getStickerCount: (stickerId: string) => number;
+  canPurchaseToday: (stickerId: string) => boolean;
+  getTimeUntilNextPurchase: (stickerId: string) => string | null;
 }
 
-const categoryColors = {
+const categoryColors: Record<string, string> = {
   animals: 'bg-peach',
   food: 'bg-yellow-soft',
   nature: 'bg-mint',
   sparkles: 'bg-lavender',
+  space: 'bg-primary/20',
+  cozy: 'bg-pink-soft',
 };
 
-const categoryLabels = {
+const categoryLabels: Record<string, string> = {
   animals: '🐾 Animals',
   food: '🍰 Treats',
   nature: '🌿 Nature',
   sparkles: '✨ Sparkles',
+  space: '🌙 Space',
+  cozy: '☕ Cozy',
 };
 
-export const StickerShop = ({ stickers, points, onPurchase, hasSticker, getStickerCount }: StickerShopProps) => {
-  const categories = ['animals', 'food', 'nature', 'sparkles'] as const;
+export const StickerShop = ({ 
+  stickers, 
+  points, 
+  onPurchase, 
+  hasSticker, 
+  getStickerCount,
+  canPurchaseToday,
+  getTimeUntilNextPurchase,
+}: StickerShopProps) => {
+  const categories = ['animals', 'food', 'nature', 'sparkles', 'space', 'cozy'] as const;
 
   return (
     <div className="space-y-8">
@@ -37,6 +51,9 @@ export const StickerShop = ({ stickers, points, onPurchase, hasSticker, getStick
             Your Points: <span className="text-primary font-bold">{points}</span>
           </span>
         </div>
+        <p className="text-sm text-muted-foreground mt-2">
+          Each sticker can only be redeemed once per day! 🌸
+        </p>
       </div>
 
       {categories.map((category) => (
@@ -52,6 +69,8 @@ export const StickerShop = ({ stickers, points, onPurchase, hasSticker, getStick
                 const owned = hasSticker(sticker.id);
                 const count = getStickerCount(sticker.id);
                 const canAfford = points >= sticker.cost;
+                const canBuyToday = canPurchaseToday(sticker.id);
+                const timeUntilNext = getTimeUntilNextPurchase(sticker.id);
 
                 return (
                   <div
@@ -59,14 +78,16 @@ export const StickerShop = ({ stickers, points, onPurchase, hasSticker, getStick
                     className={cn(
                       "relative p-4 rounded-2xl border-2 transition-all duration-200",
                       "flex flex-col items-center gap-2",
+                      !canBuyToday ? "border-muted bg-muted/30" : 
                       owned ? "border-mint bg-mint/20" : "border-primary/20 bg-card",
-                      canAfford && !owned && "hover:border-primary hover:shadow-soft hover:scale-105 cursor-pointer"
+                      canAfford && canBuyToday && "hover:border-primary hover:shadow-soft hover:scale-105 cursor-pointer"
                     )}
                   >
                     {/* Sticker display */}
                     <div className={cn(
                       "text-5xl p-3 rounded-xl",
-                      categoryColors[category]
+                      categoryColors[category],
+                      !canBuyToday && "opacity-50"
                     )}>
                       {sticker.emoji}
                     </div>
@@ -79,12 +100,30 @@ export const StickerShop = ({ stickers, points, onPurchase, hasSticker, getStick
                       {sticker.cost} points
                     </span>
 
-                    {/* Purchase button or owned indicator */}
-                    {owned ? (
-                      <div className="flex items-center gap-1 text-mint-deep text-sm font-medium">
-                        <Check className="w-4 h-4" />
-                        Owned {count > 1 && `(${count})`}
+                    {/* Cooldown indicator */}
+                    {!canBuyToday && timeUntilNext && (
+                      <div className="flex items-center gap-1 text-muted-foreground text-xs">
+                        <Clock className="w-3 h-3" />
+                        {timeUntilNext}
                       </div>
+                    )}
+
+                    {/* Purchase button or status */}
+                    {!canBuyToday ? (
+                      <div className="flex items-center gap-1 text-muted-foreground text-sm font-medium">
+                        <Clock className="w-4 h-4" />
+                        Come back tomorrow!
+                      </div>
+                    ) : owned ? (
+                      <Button
+                        variant={canAfford ? 'mint' : 'outline'}
+                        size="sm"
+                        onClick={() => onPurchase(sticker.id)}
+                        disabled={!canAfford}
+                        className="w-full mt-1"
+                      >
+                        {canAfford ? 'Get Another!' : 'Need more pts'}
+                      </Button>
                     ) : (
                       <Button
                         variant={canAfford ? 'cute' : 'outline'}
