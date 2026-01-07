@@ -78,6 +78,8 @@ export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerPro
   const [encouragement, setEncouragement] = useState(ENCOURAGEMENTS[0]);
   const [pausePenalty, setPausePenalty] = useState(0);
   const [showEffectivenessDialog, setShowEffectivenessDialog] = useState(false);
+  const [showPauseWarning, setShowPauseWarning] = useState(false);
+  const [showResetWarning, setShowResetWarning] = useState(false);
   const [pendingCompletion, setPendingCompletion] = useState<{ minutes: number; points: number } | null>(null);
 
   const selectedOption = TIME_OPTIONS.find(t => t.minutes === selectedTime);
@@ -132,14 +134,30 @@ export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerPro
   const toggleTimer = () => {
     if (selectedTime) {
       if (isRunning) {
-        // Pausing - apply penalty
-        applyPausePenalty();
-        onPause?.();
-        toast('⏸️ Paused! -5 points', {
-          description: 'Try to stay focused! 💪',
-        });
+        // Show warning before pausing
+        setShowPauseWarning(true);
+      } else {
+        setIsRunning(true);
       }
-      setIsRunning(!isRunning);
+    }
+  };
+
+  const confirmPause = () => {
+    applyPausePenalty();
+    onPause?.();
+    setIsRunning(false);
+    setShowPauseWarning(false);
+    toast('⏸️ Paused! -5 points', {
+      description: 'Try to stay focused! 💪',
+    });
+  };
+
+  const handleResetClick = () => {
+    if (selectedTime && (isRunning || timeLeft < selectedTime * 60)) {
+      // Timer has been used, show warning
+      setShowResetWarning(true);
+    } else if (selectedTime) {
+      resetTimer();
     }
   };
 
@@ -148,7 +166,22 @@ export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerPro
       setTimeLeft(selectedTime * 60);
       setIsRunning(false);
       setPausePenalty(0);
+      setShowResetWarning(false);
     }
+  };
+
+  const confirmReset = () => {
+    if (isRunning) {
+      // Apply penalty if resetting while running
+      applyPausePenalty();
+      onPause?.();
+    }
+    // Apply reset penalty
+    setPausePenalty(prev => prev + 10);
+    toast('🔄 Reset! -10 points', {
+      description: 'Starting fresh, you got this! 💪',
+    });
+    resetTimer();
   };
 
   const handleEffectivenessSelect = (modifier: number, effectivenessIndex: number) => {
@@ -271,12 +304,72 @@ export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerPro
         <Button
           variant="outline"
           size="xl"
-          onClick={resetTimer}
+          onClick={handleResetClick}
           disabled={!selectedTime}
         >
           <RotateCcw className="w-5 h-5" />
         </Button>
       </div>
+
+      {/* Pause Warning Dialog */}
+      <Dialog open={showPauseWarning} onOpenChange={setShowPauseWarning}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-fredoka">
+              ⏸️ Pause Timer?
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              Pausing will cost you <span className="text-destructive font-bold">5 points</span>. Are you sure?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 mt-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowPauseWarning(false)}
+            >
+              Keep Going! 💪
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={confirmPause}
+            >
+              Pause Anyway
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Warning Dialog */}
+      <Dialog open={showResetWarning} onOpenChange={setShowResetWarning}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-fredoka">
+              🔄 Reset Timer?
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              Resetting will cost you <span className="text-destructive font-bold">10 points</span> and lose all progress. Are you sure?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 mt-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowResetWarning(false)}
+            >
+              Keep Going! 💪
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={confirmReset}
+            >
+              Reset Anyway
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Encouragement */}
       {isRunning && (

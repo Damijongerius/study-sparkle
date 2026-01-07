@@ -131,46 +131,28 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
       {/* Header */}
       <header className="py-8 px-4">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <motion.div 
-              className="flex items-center gap-2"
+          <div className="flex items-center justify-between mb-4">
+            {/* Profile Card - Left */}
+            <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <span className="text-sm text-muted-foreground">Hi, </span>
-              <span className="font-semibold text-primary">{user.username}</span>
-              <span className="text-lg">👋</span>
-            </motion.div>
-            <motion.div
-              className="flex items-center gap-2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowFriends(true)}
-                className="gap-2"
-              >
-                <Users className="w-4 h-4" />
-                Friends
-                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                  {friends.length}
-                </span>
-              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="w-4 h-4 text-primary" />
+                  <button className="flex items-center gap-3 bg-card border-2 border-primary/20 rounded-2xl px-4 py-2 shadow-soft hover:shadow-float hover:border-primary/40 transition-all cursor-pointer">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+                      <User className="w-5 h-5 text-primary" />
                     </div>
-                  </Button>
+                    <div className="text-left">
+                      <p className="text-xs text-muted-foreground">Welcome back!</p>
+                      <p className="font-semibold text-foreground">{user.username} 👋</p>
+                    </div>
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="start" className="w-48">
                   <DropdownMenuItem className="text-muted-foreground cursor-default">
-                    {user.username}
+                    <span className="text-xs">Friend Code: {user.friendCode}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={onLogout} className="text-destructive cursor-pointer">
                     <LogOut className="w-4 h-4 mr-2" />
@@ -179,7 +161,29 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
                 </DropdownMenuContent>
               </DropdownMenu>
             </motion.div>
+
+            {/* Friends Button - Right */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFriends(true)}
+                className="gap-2 border-2 border-primary/20 hover:border-primary/40"
+              >
+                <Users className="w-4 h-4" />
+                Friends
+                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                  {friends.length}
+                </span>
+              </Button>
+            </motion.div>
           </div>
+
+          {/* Title */}
           <motion.div 
             className="text-center"
             initial={{ opacity: 0, y: -20 }}
