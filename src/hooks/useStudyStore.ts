@@ -146,7 +146,7 @@ const CARD_TEMPLATES = [
   { name: 'Ultimate Card', slots: 25 },
 ];
 
-const STORAGE_KEY = 'cutesy-study-state';
+const getStorageKey = (username?: string) => `cutesy-study-state${username ? `-${username.toLowerCase()}` : ''}`;
 
 const createNewCard = (index: number): StickerCard => {
   const template = CARD_TEMPLATES[Math.min(index, CARD_TEMPLATES.length - 1)];
@@ -161,7 +161,7 @@ const createNewCard = (index: number): StickerCard => {
 
 const generateActivityId = () => `activity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-const getInitialState = (): StudyState => {
+const getInitialState = (username?: string): StudyState => {
   if (typeof window === 'undefined') {
     return { 
       totalPoints: 0, 
@@ -175,7 +175,8 @@ const getInitialState = (): StudyState => {
     };
   }
   
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const storageKey = getStorageKey(username);
+  const stored = localStorage.getItem(storageKey);
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
@@ -237,13 +238,14 @@ const getTodayDateString = () => {
   return new Date().toISOString().split('T')[0];
 };
 
-export const useStudyStore = () => {
-  const [state, setState] = useState<StudyState>(getInitialState);
+export const useStudyStore = (username?: string) => {
+  const [state, setState] = useState<StudyState>(() => getInitialState(username));
   const [pendingSticker, setPendingSticker] = useState<string | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    const storageKey = getStorageKey(username);
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  }, [state, username]);
 
   const addActivityLog = (type: ActivityType, details: ActivityLog['details']) => {
     const newLog: ActivityLog = {
