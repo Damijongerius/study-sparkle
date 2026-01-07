@@ -31,7 +31,9 @@ export type ActivityType =
   | 'sticker_purchase' 
   | 'card_complete' 
   | 'card_redeem'
-  | 'journal_entry';
+  | 'journal_entry'
+  | 'reminder_set'
+  | 'reminder_triggered';
 
 export interface ActivityLog {
   id: string;
@@ -46,7 +48,17 @@ export interface ActivityLog {
     cardId?: string;
     cardName?: string;
     journalText?: string;
+    reminderText?: string;
+    reminderMinutes?: number;
   };
+}
+
+export interface Reminder {
+  id: string;
+  text: string;
+  triggerAt: Date;
+  createdAt: Date;
+  triggered: boolean;
 }
 
 interface DailyCooldown {
@@ -61,6 +73,7 @@ interface StudyState {
   stickerCards: StickerCard[];
   dailyCooldowns: DailyCooldown;
   activityLogs: ActivityLog[];
+  reminders: Reminder[];
 }
 
 const STICKERS: Sticker[] = [
@@ -158,6 +171,7 @@ const getInitialState = (): StudyState => {
       stickerCards: [createNewCard(0)],
       dailyCooldowns: {},
       activityLogs: [],
+      reminders: [],
     };
   }
   
@@ -186,6 +200,11 @@ const getInitialState = (): StudyState => {
           ...log,
           timestamp: new Date(log.timestamp),
         })),
+        reminders: (parsed.reminders || []).map((r: any) => ({
+          ...r,
+          triggerAt: new Date(r.triggerAt),
+          createdAt: new Date(r.createdAt),
+        })),
       };
       
       return state;
@@ -198,6 +217,7 @@ const getInitialState = (): StudyState => {
         stickerCards: [createNewCard(0)],
         dailyCooldowns: {},
         activityLogs: [],
+        reminders: [],
       };
     }
   }
@@ -209,6 +229,7 @@ const getInitialState = (): StudyState => {
     stickerCards: [createNewCard(0)],
     dailyCooldowns: {},
     activityLogs: [],
+    reminders: [],
   };
 };
 
@@ -242,6 +263,57 @@ export const useStudyStore = () => {
     addActivityLog('journal_entry', { journalText: text });
   };
 
+  const addReminder = (text: string, minutes: number) => {
+    const id = `reminder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const triggerAt = new Date(Date.now() + minutes * 60 * 1000);
+    
+    const newReminder: Reminder = {
+      id,
+      text,
+      triggerAt,
+      createdAt: new Date(),
+      triggered: false,
+    };
+    
+    setState(prev => ({
+      ...prev,
+      reminders: [...prev.reminders, newReminder],
+    }));
+    
+    addActivityLog('reminder_set', { reminderText: text, reminderMinutes: minutes });
+    
+    return newReminder;
+  };
+
+  const triggerReminder = (reminderId: string) => {
+    const reminder = state.reminders.find(r => r.id === reminderId);
+    if (!reminder || reminder.triggered) return;
+    
+    setState(prev => ({
+      ...prev,
+      reminders: prev.reminders.map(r => 
+        r.id === reminderId ? { ...r, triggered: true } : r
+      ),
+    }));
+    
+    addActivityLog('reminder_triggered', { reminderText: reminder.text });
+  };
+
+  const dismissReminder = (reminderId: string) => {
+    setState(prev => ({
+      ...prev,
+      reminders: prev.reminders.filter(r => r.id !== reminderId),
+    }));
+  };
+
+  const getActiveReminders = (): Reminder[] => {
+    return state.reminders.filter(r => !r.triggered);
+  };
+
+  const getDueReminders = (): Reminder[] => {
+    const now = new Date();
+    return state.reminders.filter(r => !r.triggered && new Date(r.triggerAt) <= now);
+  };
   const addPoints = (points: number, minutes: number, effectiveness?: number) => {
     setState(prev => ({
       ...prev,
@@ -426,6 +498,11 @@ export const useStudyStore = () => {
     canPurchaseToday,
     getTimeUntilNextPurchase,
     addJournalEntry,
+    addReminder,
+    triggerReminder,
+    dismissReminder,
+    getActiveReminders,
+    getDueReminders,
   };
 };
 

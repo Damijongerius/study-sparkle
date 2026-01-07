@@ -184,7 +184,12 @@ const Index = () => {
             {activeTab === 'log' && (
               <ActivityLog
                 logs={store.activityLogs}
+                reminders={store.reminders}
                 onAddJournalEntry={store.addJournalEntry}
+                onAddReminder={store.addReminder}
+                onDismissReminder={store.dismissReminder}
+                onTriggerReminder={store.triggerReminder}
+                getDueReminders={store.getDueReminders}
               />
             )}
           </div>
