@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { StudyTimer } from '@/components/StudyTimer';
 import { StickerShop } from '@/components/StickerShop';
 import { StickerCard } from '@/components/StickerCard';
@@ -8,13 +8,21 @@ import { useStudyStore } from '@/hooks/useStudyStore';
 import { Button } from '@/components/ui/button';
 import { BookOpen, ShoppingBag, Sparkles, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 type Tab = 'study' | 'shop' | 'collection';
+
+interface TimerState {
+  isRunning: boolean;
+  setIsRunning: (running: boolean) => void;
+  applyPausePenalty: () => void;
+}
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>('study');
   const [showCelebration, setShowCelebration] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
+  const timerRef = useRef<TimerState | null>(null);
 
   const store = useStudyStore();
 
@@ -27,6 +35,22 @@ const Index = () => {
   const handlePurchase = useCallback((stickerId: string) => {
     return store.purchaseSticker(stickerId);
   }, [store]);
+
+  const handleTabChange = useCallback((newTab: Tab) => {
+    // If switching away from study tab while timer is running, pause and penalize
+    if (activeTab === 'study' && newTab !== 'study' && timerRef.current?.isRunning) {
+      timerRef.current.setIsRunning(false);
+      timerRef.current.applyPausePenalty();
+      toast('⏸️ Timer paused! -5 points', {
+        description: 'Your progress is saved, come back soon! 💪',
+      });
+    }
+    setActiveTab(newTab);
+  }, [activeTab]);
+
+  const registerTimer = useCallback((timer: TimerState) => {
+    timerRef.current = timer;
+  }, []);
 
   const tabs = [
     { id: 'study' as Tab, label: 'Study', icon: BookOpen, emoji: '📚' },
@@ -73,7 +97,7 @@ const Index = () => {
                 "flex-1 gap-2",
                 activeTab === tab.id && "shadow-glow"
               )}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
             >
               <span className="text-lg">{tab.emoji}</span>
               <span className="hidden sm:inline">{tab.label}</span>
@@ -99,7 +123,7 @@ const Index = () => {
                     Pick a study block and earn points!
                   </p>
                 </div>
-                <StudyTimer onComplete={handleStudyComplete} />
+                <StudyTimer onComplete={handleStudyComplete} registerTimer={registerTimer} />
               </div>
             )}
 
@@ -110,12 +134,14 @@ const Index = () => {
                 onPurchase={handlePurchase}
                 hasSticker={store.hasSticker}
                 getStickerCount={store.getStickerCount}
+                canPurchaseToday={store.canPurchaseToday}
+                getTimeUntilNextPurchase={store.getTimeUntilNextPurchase}
               />
             )}
 
             {activeTab === 'collection' && (
               <StickerCard
-                ownedStickers={store.ownedStickers}
+                stickerCards={store.stickerCards}
                 allStickers={store.stickers}
               />
             )}
