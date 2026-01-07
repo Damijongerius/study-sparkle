@@ -31,7 +31,15 @@ const AuthenticatedApp = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Index user={auth.user!} onLogout={auth.logout} />} />
+        <Route path="/" element={
+          <Index 
+            user={auth.user!} 
+            friends={auth.friends}
+            onLogout={auth.logout} 
+            onAddFriend={auth.addFriend}
+            onRemoveFriend={auth.removeFriend}
+          />
+        } />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
