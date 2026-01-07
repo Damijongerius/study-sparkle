@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Sticker } from '@/hooks/useStudyStore';
 import { cn } from '@/lib/utils';
-import { ShoppingBag, Check, Clock } from 'lucide-react';
+import { ShoppingBag, Clock } from 'lucide-react';
 
 interface StickerShopProps {
   stickers: Sticker[];

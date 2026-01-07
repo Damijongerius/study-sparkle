@@ -13,12 +13,40 @@ export interface OwnedSticker {
   earnedAt: Date;
 }
 
+export type CardStatus = 'in-progress' | 'done' | 'redeemed';
+
 export interface StickerCard {
   id: string;
   name: string;
   slots: number;
   stickers: OwnedSticker[];
+  status: CardStatus;
   completedAt?: Date;
+  redeemedAt?: Date;
+}
+
+export type ActivityType = 
+  | 'study_complete' 
+  | 'study_pause' 
+  | 'sticker_purchase' 
+  | 'card_complete' 
+  | 'card_redeem'
+  | 'journal_entry';
+
+export interface ActivityLog {
+  id: string;
+  type: ActivityType;
+  timestamp: Date;
+  details: {
+    points?: number;
+    minutes?: number;
+    effectiveness?: number;
+    stickerId?: string;
+    stickerName?: string;
+    cardId?: string;
+    cardName?: string;
+    journalText?: string;
+  };
 }
 
 interface DailyCooldown {
@@ -32,6 +60,7 @@ interface StudyState {
   studySessions: number;
   stickerCards: StickerCard[];
   dailyCooldowns: DailyCooldown;
+  activityLogs: ActivityLog[];
 }
 
 const STICKERS: Sticker[] = [
@@ -113,8 +142,11 @@ const createNewCard = (index: number): StickerCard => {
     name: template.name,
     slots: template.slots,
     stickers: [],
+    status: 'in-progress',
   };
 };
+
+const generateActivityId = () => `activity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 const getInitialState = (): StudyState => {
   if (typeof window === 'undefined') {
@@ -125,6 +157,7 @@ const getInitialState = (): StudyState => {
       studySessions: 0,
       stickerCards: [createNewCard(0)],
       dailyCooldowns: {},
+      activityLogs: [],
     };
   }
   
@@ -140,19 +173,20 @@ const getInitialState = (): StudyState => {
         })),
         stickerCards: (parsed.stickerCards || [createNewCard(0)]).map((card: any) => ({
           ...card,
+          status: card.status || (card.completedAt ? 'done' : 'in-progress'),
           stickers: card.stickers.map((s: any) => ({
             ...s,
             earnedAt: new Date(s.earnedAt)
           })),
           completedAt: card.completedAt ? new Date(card.completedAt) : undefined,
+          redeemedAt: card.redeemedAt ? new Date(card.redeemedAt) : undefined,
         })),
         dailyCooldowns: parsed.dailyCooldowns || {},
+        activityLogs: (parsed.activityLogs || []).map((log: any) => ({
+          ...log,
+          timestamp: new Date(log.timestamp),
+        })),
       };
-      
-      // Ensure at least one active card exists
-      if (!state.stickerCards.some((c: StickerCard) => !c.completedAt)) {
-        state.stickerCards.push(createNewCard(state.stickerCards.length));
-      }
       
       return state;
     } catch {
@@ -163,6 +197,7 @@ const getInitialState = (): StudyState => {
         studySessions: 0,
         stickerCards: [createNewCard(0)],
         dailyCooldowns: {},
+        activityLogs: [],
       };
     }
   }
@@ -173,6 +208,7 @@ const getInitialState = (): StudyState => {
     studySessions: 0,
     stickerCards: [createNewCard(0)],
     dailyCooldowns: {},
+    activityLogs: [],
   };
 };
 
@@ -182,18 +218,43 @@ const getTodayDateString = () => {
 
 export const useStudyStore = () => {
   const [state, setState] = useState<StudyState>(getInitialState);
+  const [pendingSticker, setPendingSticker] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  const addPoints = (points: number, minutes: number) => {
+  const addActivityLog = (type: ActivityType, details: ActivityLog['details']) => {
+    const newLog: ActivityLog = {
+      id: generateActivityId(),
+      type,
+      timestamp: new Date(),
+      details,
+    };
+    
+    setState(prev => ({
+      ...prev,
+      activityLogs: [newLog, ...prev.activityLogs].slice(0, 500), // Keep last 500 logs
+    }));
+  };
+
+  const addJournalEntry = (text: string) => {
+    addActivityLog('journal_entry', { journalText: text });
+  };
+
+  const addPoints = (points: number, minutes: number, effectiveness?: number) => {
     setState(prev => ({
       ...prev,
       totalPoints: prev.totalPoints + points,
       totalStudyMinutes: prev.totalStudyMinutes + minutes,
       studySessions: prev.studySessions + 1,
     }));
+    
+    addActivityLog('study_complete', { points, minutes, effectiveness });
+  };
+
+  const logPause = () => {
+    addActivityLog('study_pause', { points: -5 });
   };
 
   const canPurchaseToday = (stickerId: string): boolean => {
@@ -218,7 +279,13 @@ export const useStudyStore = () => {
     return `${hours}h ${minutes}m`;
   };
 
-  const purchaseSticker = (stickerId: string): boolean => {
+  // Get cards that can receive stickers (in-progress only)
+  const getAvailableCards = (): StickerCard[] => {
+    return state.stickerCards.filter(c => c.status === 'in-progress' && c.stickers.length < c.slots);
+  };
+
+  // Initiate sticker purchase - returns true if modal should show
+  const initiatePurchase = (stickerId: string): boolean => {
     const sticker = STICKERS.find(s => s.id === stickerId);
     if (!sticker || state.totalPoints < sticker.cost) {
       return false;
@@ -228,30 +295,51 @@ export const useStudyStore = () => {
       return false;
     }
 
-    const newOwnedSticker: OwnedSticker = { stickerId, earnedAt: new Date() };
+    setPendingSticker(stickerId);
+    return true;
+  };
+
+  // Cancel pending purchase
+  const cancelPurchase = () => {
+    setPendingSticker(null);
+  };
+
+  // Confirm purchase to specific card
+  const confirmPurchase = (cardId: string): boolean => {
+    if (!pendingSticker) return false;
+    
+    const sticker = STICKERS.find(s => s.id === pendingSticker);
+    if (!sticker || state.totalPoints < sticker.cost) {
+      setPendingSticker(null);
+      return false;
+    }
+
+    const cardIndex = state.stickerCards.findIndex(c => c.id === cardId);
+    if (cardIndex === -1) {
+      setPendingSticker(null);
+      return false;
+    }
+
+    const card = state.stickerCards[cardIndex];
+    if (card.status !== 'in-progress' || card.stickers.length >= card.slots) {
+      setPendingSticker(null);
+      return false;
+    }
+
+    const newOwnedSticker: OwnedSticker = { stickerId: pendingSticker, earnedAt: new Date() };
     
     setState(prev => {
-      // Find the current active card (not completed)
       const updatedCards = [...prev.stickerCards];
-      let activeCardIndex = updatedCards.findIndex(c => !c.completedAt);
+      const targetCard = { ...updatedCards[cardIndex] };
+      targetCard.stickers = [...targetCard.stickers, newOwnedSticker];
       
-      if (activeCardIndex === -1) {
-        // All cards completed, create new one
-        updatedCards.push(createNewCard(updatedCards.length));
-        activeCardIndex = updatedCards.length - 1;
+      // Check if card is now full
+      if (targetCard.stickers.length >= targetCard.slots) {
+        targetCard.status = 'done';
+        targetCard.completedAt = new Date();
       }
       
-      const activeCard = { ...updatedCards[activeCardIndex] };
-      activeCard.stickers = [...activeCard.stickers, newOwnedSticker];
-      
-      // Check if card is now complete
-      if (activeCard.stickers.length >= activeCard.slots) {
-        activeCard.completedAt = new Date();
-        // Create next card
-        updatedCards.push(createNewCard(updatedCards.length));
-      }
-      
-      updatedCards[activeCardIndex] = activeCard;
+      updatedCards[cardIndex] = targetCard;
       
       return {
         ...prev,
@@ -260,10 +348,55 @@ export const useStudyStore = () => {
         stickerCards: updatedCards,
         dailyCooldowns: {
           ...prev.dailyCooldowns,
-          [stickerId]: getTodayDateString(),
+          [pendingSticker!]: getTodayDateString(),
         },
       };
     });
+
+    addActivityLog('sticker_purchase', { 
+      stickerId: pendingSticker, 
+      stickerName: sticker.name,
+      points: -sticker.cost,
+      cardId,
+      cardName: card.name,
+    });
+
+    setPendingSticker(null);
+    return true;
+  };
+
+  // Create a new card
+  const createCard = (): StickerCard => {
+    const newCard = createNewCard(state.stickerCards.length);
+    setState(prev => ({
+      ...prev,
+      stickerCards: [...prev.stickerCards, newCard],
+    }));
+    return newCard;
+  };
+
+  // Redeem a completed card
+  const redeemCard = (cardId: string): boolean => {
+    const cardIndex = state.stickerCards.findIndex(c => c.id === cardId);
+    if (cardIndex === -1) return false;
+    
+    const card = state.stickerCards[cardIndex];
+    if (card.status !== 'done') return false;
+
+    setState(prev => {
+      const updatedCards = [...prev.stickerCards];
+      updatedCards[cardIndex] = {
+        ...updatedCards[cardIndex],
+        status: 'redeemed',
+        redeemedAt: new Date(),
+      };
+      return {
+        ...prev,
+        stickerCards: updatedCards,
+      };
+    });
+
+    addActivityLog('card_redeem', { cardId, cardName: card.name });
     return true;
   };
 
@@ -278,11 +411,22 @@ export const useStudyStore = () => {
   return {
     ...state,
     stickers: STICKERS,
+    pendingSticker,
+    pendingStickerData: pendingSticker ? STICKERS.find(s => s.id === pendingSticker) : null,
     addPoints,
-    purchaseSticker,
+    logPause,
+    initiatePurchase,
+    confirmPurchase,
+    cancelPurchase,
+    createCard,
+    redeemCard,
+    getAvailableCards,
     hasSticker,
     getStickerCount,
     canPurchaseToday,
     getTimeUntilNextPurchase,
+    addJournalEntry,
   };
 };
+
+export type StudyStore = ReturnType<typeof useStudyStore>;
