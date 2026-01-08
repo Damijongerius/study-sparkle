@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { StickerCard as StickerCardType, Sticker, CardStatus } from '@/hooks/useStudyStore';
+import { StickerCard as StickerCardType, Sticker, CardStatus, CATEGORY_LABELS, StickerCategory } from '@/hooks/useStudyStore';
 import { cn } from '@/lib/utils';
 import { Sparkles, Heart, Check, Gift, Plus, Search, Filter, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ interface StickerCardProps {
   stickerCards: StickerCardType[];
   allStickers: Sticker[];
   onRedeemCard?: (cardId: string) => void;
-  onCreateCustomCard?: (name: string, goal: string, slots: number) => void;
+  onCreateCustomCard?: (name: string, goal: string, slots: number, allowedCategories: StickerCategory[]) => void;
 }
 
 const statusConfig: Record<CardStatus, { label: string; color: string; icon: React.ReactNode }> = {
@@ -94,9 +94,9 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard, onCreateC
   const doneCount = stickerCards.filter(c => c.status === 'done').length;
   const redeemedCount = stickerCards.filter(c => c.status === 'redeemed').length;
 
-  const handleCreateCard = (name: string, goal: string, slots: number) => {
+  const handleCreateCard = (name: string, goal: string, slots: number, allowedCategories: StickerCategory[]) => {
     if (onCreateCustomCard) {
-      onCreateCustomCard(name, goal, slots);
+      onCreateCustomCard(name, goal, slots, allowedCategories);
     }
     setShowCreateCard(false);
   };
@@ -289,6 +289,18 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard, onCreateC
               <p className="text-xs text-muted-foreground mt-1">
                 From: {currentCard.givenBy} 💝
               </p>
+            )}
+
+            {/* Show allowed categories */}
+            {currentCard.allowedCategories && currentCard.allowedCategories.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-1 mt-2">
+                <span className="text-xs text-muted-foreground">Accepts:</span>
+                {currentCard.allowedCategories.map(cat => (
+                  <span key={cat} className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                    {CATEGORY_LABELS[cat].emoji} {CATEGORY_LABELS[cat].label}
+                  </span>
+                ))}
+              </div>
             )}
 
             {/* Completion date */}
