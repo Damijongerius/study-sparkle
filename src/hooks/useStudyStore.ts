@@ -5,7 +5,7 @@ export interface Sticker {
   name: string;
   emoji: string;
   cost: number;
-  category: 'animals' | 'food' | 'nature' | 'sparkles' | 'space' | 'cozy';
+  category: 'animals' | 'food' | 'nature' | 'sparkles' | 'space' | 'cozy' | 'sports' | 'music' | 'weather';
 }
 
 export interface OwnedSticker {
@@ -29,9 +29,9 @@ export interface StickerCard {
   allowedCategories?: StickerCategory[]; // Empty or undefined = all categories allowed
 }
 
-export type StickerCategory = 'animals' | 'food' | 'nature' | 'sparkles' | 'space' | 'cozy';
+export type StickerCategory = 'animals' | 'food' | 'nature' | 'sparkles' | 'space' | 'cozy' | 'sports' | 'music' | 'weather';
 
-export const ALL_CATEGORIES: StickerCategory[] = ['animals', 'food', 'nature', 'sparkles', 'space', 'cozy'];
+export const ALL_CATEGORIES: StickerCategory[] = ['animals', 'food', 'nature', 'sparkles', 'space', 'cozy', 'sports', 'music', 'weather'];
 
 export const CATEGORY_LABELS: Record<StickerCategory, { label: string; emoji: string }> = {
   animals: { label: 'Animals', emoji: '🐰' },
@@ -40,6 +40,9 @@ export const CATEGORY_LABELS: Record<StickerCategory, { label: string; emoji: st
   sparkles: { label: 'Sparkles', emoji: '✨' },
   space: { label: 'Space', emoji: '🚀' },
   cozy: { label: 'Cozy', emoji: '☕' },
+  sports: { label: 'Sports', emoji: '⚽' },
+  music: { label: 'Music', emoji: '🎵' },
+  weather: { label: 'Weather', emoji: '🌤️' },
 };
 
 export type ActivityType = 
@@ -165,6 +168,36 @@ const STICKERS: Sticker[] = [
   { id: 'blanket', name: 'Soft Blanket', emoji: '🧶', cost: 55, category: 'cozy' },
   { id: 'lamp', name: 'Study Lamp', emoji: '💡', cost: 60, category: 'cozy' },
   { id: 'plant', name: 'Desk Plant', emoji: '🪴', cost: 50, category: 'cozy' },
+  
+  // Sports
+  { id: 'soccer', name: 'Soccer Ball', emoji: '⚽', cost: 45, category: 'sports' },
+  { id: 'basketball', name: 'Basketball', emoji: '🏀', cost: 50, category: 'sports' },
+  { id: 'tennis', name: 'Tennis Ball', emoji: '🎾', cost: 40, category: 'sports' },
+  { id: 'medal', name: 'Gold Medal', emoji: '🥇', cost: 150, category: 'sports' },
+  { id: 'skateboard', name: 'Cool Skateboard', emoji: '🛹', cost: 70, category: 'sports' },
+  { id: 'bowling', name: 'Strike!', emoji: '🎳', cost: 55, category: 'sports' },
+  { id: 'dart', name: 'Bullseye', emoji: '🎯', cost: 65, category: 'sports' },
+  { id: 'pingpong', name: 'Ping Pong', emoji: '🏓', cost: 45, category: 'sports' },
+  
+  // Music
+  { id: 'musicnote', name: 'Music Note', emoji: '🎵', cost: 35, category: 'music' },
+  { id: 'guitar', name: 'Cool Guitar', emoji: '🎸', cost: 80, category: 'music' },
+  { id: 'piano', name: 'Piano Keys', emoji: '🎹', cost: 90, category: 'music' },
+  { id: 'microphone', name: 'Sing Along', emoji: '🎤', cost: 60, category: 'music' },
+  { id: 'headphones', name: 'Headphones', emoji: '🎧', cost: 55, category: 'music' },
+  { id: 'drum', name: 'Drum Beat', emoji: '🥁', cost: 70, category: 'music' },
+  { id: 'violin', name: 'Violin', emoji: '🎻', cost: 100, category: 'music' },
+  { id: 'saxophone', name: 'Saxophone', emoji: '🎷', cost: 85, category: 'music' },
+  
+  // Weather
+  { id: 'sun', name: 'Sunny Day', emoji: '☀️', cost: 40, category: 'weather' },
+  { id: 'cloud', name: 'Fluffy Cloud', emoji: '☁️', cost: 30, category: 'weather' },
+  { id: 'rain', name: 'Rainy Day', emoji: '🌧️', cost: 45, category: 'weather' },
+  { id: 'snow', name: 'Snowflake', emoji: '❄️', cost: 50, category: 'weather' },
+  { id: 'thunder', name: 'Thunder', emoji: '⚡', cost: 75, category: 'weather' },
+  { id: 'tornado', name: 'Tornado', emoji: '🌪️', cost: 120, category: 'weather' },
+  { id: 'umbrella', name: 'Umbrella', emoji: '☂️', cost: 55, category: 'weather' },
+  { id: 'suncloud', name: 'Partly Cloudy', emoji: '⛅', cost: 35, category: 'weather' },
 ];
 
 const getStorageKey = (username?: string) => `cutesy-study-state${username ? `-${username.toLowerCase()}` : ''}`;
