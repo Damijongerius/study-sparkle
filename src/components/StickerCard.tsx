@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { StickerCard as StickerCardType, Sticker, CardStatus, CATEGORY_LABELS, StickerCategory } from '@/hooks/useStudyStore';
 import { cn } from '@/lib/utils';
 import { Sparkles, Heart, Check, Gift, Plus, Search, Filter, Calendar } from 'lucide-react';
@@ -15,6 +15,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+// Hook for horizontal drag scrolling
+const useDragScroll = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!ref.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - ref.current.offsetLeft);
+    setScrollLeft(ref.current.scrollLeft);
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+  const handleMouseLeave = () => setIsDragging(false);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !ref.current) return;
+    e.preventDefault();
+    const x = e.pageX - ref.current.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    ref.current.scrollLeft = scrollLeft - walk;
+  };
+
+  return {
+    ref,
+    isDragging,
+    onMouseDown: handleMouseDown,
+    onMouseUp: handleMouseUp,
+    onMouseLeave: handleMouseLeave,
+    onMouseMove: handleMouseMove,
+    style: { cursor: isDragging ? 'grabbing' : 'grab' } as React.CSSProperties,
+  };
+};
 
 interface StickerCardProps {
   stickerCards: StickerCardType[];
@@ -41,6 +77,8 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard, onCreateC
   const [filterStatus, setFilterStatus] = useState<FilterType>('all');
   const [sortBy, setSortBy] = useState<SortType>('newest');
   const [showCreateCard, setShowCreateCard] = useState(false);
+  
+  const dragScroll = useDragScroll();
 
   // Filter and sort cards
   const filteredCards = useMemo(() => {
@@ -99,6 +137,13 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard, onCreateC
       onCreateCustomCard(name, goal, slots, allowedCategories);
     }
     setShowCreateCard(false);
+  };
+
+  const handleCardClick = (cardId: string) => {
+    // Only select if not dragging
+    if (!dragScroll.isDragging) {
+      setSelectedCardId(cardId);
+    }
   };
 
   if (showCreateCard && onCreateCustomCard) {
@@ -207,13 +252,21 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard, onCreateC
         </div>
       </div>
 
-      {/* Card List (horizontal scrollable) */}
+      {/* Card List (horizontal scrollable with drag) */}
       <div className="relative">
-        <div className="flex gap-3 overflow-x-auto pb-2 px-1 snap-x snap-mandatory scrollbar-thin">
+        <div 
+          ref={dragScroll.ref}
+          onMouseDown={dragScroll.onMouseDown}
+          onMouseUp={dragScroll.onMouseUp}
+          onMouseLeave={dragScroll.onMouseLeave}
+          onMouseMove={dragScroll.onMouseMove}
+          style={dragScroll.style}
+          className="flex gap-3 overflow-x-auto pb-2 px-1 scrollbar-thin select-none"
+        >
           {onCreateCustomCard && (
             <button
               onClick={() => setShowCreateCard(true)}
-              className="flex-shrink-0 w-28 h-20 rounded-xl border-2 border-dashed border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-1 snap-start"
+              className="flex-shrink-0 w-28 h-20 rounded-xl border-2 border-dashed border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-1"
             >
               <Plus className="w-5 h-5 text-primary" />
               <span className="text-xs font-medium text-primary">New Card</span>
@@ -222,9 +275,9 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard, onCreateC
           {filteredCards.map((card) => (
             <button
               key={card.id}
-              onClick={() => setSelectedCardId(card.id)}
+              onClick={() => handleCardClick(card.id)}
               className={cn(
-                "flex-shrink-0 w-28 h-20 rounded-xl border-2 p-2 transition-all snap-start",
+                "flex-shrink-0 w-28 h-20 rounded-xl border-2 p-2 transition-all",
                 "flex flex-col items-start justify-between text-left",
                 selectedCardId === card.id
                   ? "border-primary bg-primary/10 shadow-soft"
@@ -254,6 +307,9 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard, onCreateC
             </button>
           ))}
         </div>
+        <p className="text-xs text-center text-muted-foreground mt-1">
+          👆 Drag to scroll
+        </p>
       </div>
 
       {/* Selected Card Display */}

@@ -22,6 +22,7 @@ interface StudyTimerProps {
 }
 
 const TIME_OPTIONS = [
+  { minutes: 1, label: '1 min', points: 1000, emoji: '🧪' }, // DEBUG - remove later
   { minutes: 15, label: '15 min', points: 15, emoji: '🌱' },
   { minutes: 25, label: '25 min', points: 30, emoji: '🌸' },
   { minutes: 45, label: '45 min', points: 60, emoji: '🌺' },
