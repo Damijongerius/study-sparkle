@@ -3,7 +3,7 @@
  * Handles all communication with the backend API using session-based authentication
  */
 
-const API_BASE_URL = 'https://api.studybuddyapp.com'; // Replace with your actual API base URL
+const API_BASE_URL = 'https://studyapi.jongerius.app'; // Replace with your actual API base URL
 
 interface ApiResponse<T> {
   success?: boolean;
