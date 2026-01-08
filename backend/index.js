@@ -25,19 +25,8 @@ if (process.env.NODE_ENV === 'production') {
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-const corsOptions = process.env.NODE_ENV === 'development' ? {
-    origin: true, // allow all origins in development
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-} : {
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps, curl) or from the configured frontend
-        if (!origin || origin === FRONTEND_URL) {
-            return callback(null, true);
-        }
-        return callback(new Error('CORS policy: Origin not allowed'), false);
-    },
+const corsOptions = {
+    origin: true, // allow all origins
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
