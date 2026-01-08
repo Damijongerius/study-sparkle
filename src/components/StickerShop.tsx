@@ -9,6 +9,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { sfx } from '@/lib/sfx';
 
 interface StickerShopProps {
   stickers: Sticker[];
@@ -117,7 +118,7 @@ export const StickerShop = ({
   }, [stickers, canPurchaseToday]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="text-center">
         <div className="inline-flex items-center gap-2 bg-card px-6 py-3 rounded-2xl shadow-soft border-2 border-primary/20">
           <ShoppingBag className="w-5 h-5 text-primary" />
@@ -223,7 +224,7 @@ const CategoryRow = ({
       <div
         {...dragProps}
         ref={dragProps.ref}
-        className="flex gap-4 overflow-x-auto pb-3 px-1 scrollbar-thin select-none"
+        className="flex gap-6 overflow-x-auto pb-4 px-2 scrollbar-thin select-none"
         style={dragProps.style}
       >
         {stickers.map((sticker) => {
@@ -237,16 +238,16 @@ const CategoryRow = ({
             <div
               key={sticker.id}
               className={cn(
-                "relative p-4 rounded-2xl border-2 transition-all duration-200 flex-shrink-0",
-                "flex flex-col items-center gap-2 w-[140px]",
+                "relative p-5 rounded-2xl border-2 transition-all duration-200 flex-shrink-0",
+                "flex flex-col items-center gap-3 w-[152px]",
                 !canBuyToday ? "border-muted bg-muted/30" : 
                 owned ? "border-mint bg-mint/20" : "border-primary/20 bg-card",
-                canAfford && canBuyToday && "hover:border-primary hover:shadow-soft hover:scale-105 cursor-pointer"
+                canAfford && canBuyToday && "hover:border-primary hover:shadow-soft hover:scale-[1.03] cursor-pointer"
               )}
             >
               {/* Sticker display */}
               <div className={cn(
-                "text-5xl p-3 rounded-xl",
+                "text-5xl p-4 rounded-xl",
                 categoryColors[category],
                 !canBuyToday && "opacity-50"
               )}>
@@ -279,7 +280,10 @@ const CategoryRow = ({
                 <Button
                   variant={canAfford ? 'mint' : 'outline'}
                   size="sm"
-                  onClick={() => onPurchase(sticker.id)}
+                  onClick={() => {
+                    sfx.click();
+                    onPurchase(sticker.id);
+                  }}
                   disabled={!canAfford}
                   className="w-full mt-1"
                 >
@@ -289,7 +293,10 @@ const CategoryRow = ({
                 <Button
                   variant={canAfford ? 'cute' : 'outline'}
                   size="sm"
-                  onClick={() => onPurchase(sticker.id)}
+                  onClick={() => {
+                    sfx.click();
+                    onPurchase(sticker.id);
+                  }}
                   disabled={!canAfford}
                   className="w-full mt-1"
                 >

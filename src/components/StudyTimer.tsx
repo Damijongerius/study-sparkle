@@ -13,12 +13,12 @@ import { toast } from 'sonner';
 
 interface StudyTimerProps {
   onComplete: (minutes: number, points: number, effectiveness?: number) => void;
-  registerTimer?: (timer: { 
-    isRunning: boolean; 
+  registerTimer?: (timer: {
+    isRunning: boolean;
     setIsRunning: (running: boolean) => void;
     applyPausePenalty: () => void;
   }) => void;
-  onPause?: () => void;
+  onPenalty?: (amount: number, reason: 'pause' | 'reset') => void;
 }
 
 const TIME_OPTIONS = [
@@ -100,7 +100,7 @@ const clearTimerState = () => {
   localStorage.removeItem(TIMER_STORAGE_KEY);
 };
 
-export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerProps) => {
+export const StudyTimer = ({ onComplete, registerTimer, onPenalty }: StudyTimerProps) => {
   // Restore state from localStorage on mount
   const [selectedTime, setSelectedTime] = useState<number | null>(() => {
     const saved = loadTimerState();
@@ -173,7 +173,7 @@ export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerPro
     } else if (timeLeft === 0 && isRunning && selectedOption) {
       setIsRunning(false);
       playAlarmSound();
-      const basePoints = Math.max(0, selectedOption.points - pausePenalty);
+      const basePoints = Math.max(0, selectedOption.points);
       setPendingCompletion({ minutes: selectedOption.minutes, points: basePoints });
       setShowEffectivenessDialog(true);
     }
@@ -208,7 +208,7 @@ export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerPro
 
   const confirmPause = () => {
     applyPausePenalty();
-    onPause?.();
+    onPenalty?.(5, 'pause');
     setIsRunning(false);
     setShowPauseWarning(false);
     toast('⏸️ Paused! -5 points', {
@@ -238,10 +238,11 @@ export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerPro
     if (isRunning) {
       // Apply penalty if resetting while running
       applyPausePenalty();
-      onPause?.();
+      onPenalty?.(5, 'pause');
     }
     // Apply reset penalty
     setPausePenalty(prev => prev + 10);
+    onPenalty?.(10, 'reset');
     toast('🔄 Reset! -10 points', {
       description: 'Starting fresh, you got this! 💪',
     });
@@ -331,7 +332,7 @@ export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerPro
             )}
             {pausePenalty > 0 && (
               <div className="text-sm text-destructive mt-1">
-                -{pausePenalty} pause penalty
+                Penalties applied: -{pausePenalty} pts
               </div>
             )}
           </div>

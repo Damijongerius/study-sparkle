@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { BookOpen, ShoppingBag, Sparkles, Heart, ScrollText, LogOut, Users, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { sfx } from '@/lib/sfx';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,9 +72,18 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
   }, [store]);
 
   const handleSelectCard = useCallback((cardId: string) => {
+    const card = store.stickerCards.find(c => c.id === cardId);
+    const willComplete = !!card && card.status === 'in-progress' && card.stickers.length + 1 >= card.slots;
+
     const success = store.confirmPurchase(cardId);
     if (success) {
-      toast.success('Sticker added! 🎉', { description: 'Check your sticker card to see it!' });
+      if (willComplete) {
+        sfx.complete();
+        toast.success('Sticker added — card completed! 🎉', { description: 'Go redeem it in your collection 💝' });
+      } else {
+        sfx.purchase();
+        toast.success('Sticker added! 🎉', { description: 'Check your sticker card to see it!' });
+      }
     }
   }, [store]);
 
@@ -90,7 +100,10 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
 
   const handleRedeemCard = useCallback((cardId: string) => {
     const success = store.redeemCard(cardId);
-    if (success) toast.success('Card redeemed! 🎁', { description: 'Congratulations on completing your collection!' });
+    if (success) {
+      sfx.redeem();
+      toast.success('Card redeemed! 🎁', { description: 'Congratulations on completing your collection!' });
+    }
   }, [store]);
 
   const handleTabChange = useCallback((newTab: Tab) => {
@@ -184,6 +197,11 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
                 <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
                   {friends.length}
                 </span>
+                {store.notifications?.some(n => !n.read) && (
+                  <span className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full">
+                    {store.notifications.filter(n => !n.read).length}
+                  </span>
+                )}
               </Button>
             </motion.div>
           </div>
@@ -305,7 +323,10 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
                   <StudyTimer 
                     onComplete={handleStudyComplete} 
                     registerTimer={registerTimer}
-                    onPause={() => store.logPause()}
+                    onPenalty={(amount, reason) => {
+                      if (reason === 'pause') store.logPause();
+                      if (reason === 'reset') store.deductPoints(amount, 'reset');
+                    }}
                   />
                 </motion.div>
               )}
@@ -436,6 +457,9 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
                 <FriendsManager
                   friendCode={user.friendCode}
                   friends={friends}
+                  notifications={store.notifications || []}
+                  onMarkNotificationRead={store.markNotificationRead}
+                  onClearNotifications={store.clearNotifications}
                   onAddFriend={onAddFriend}
                   onRemoveFriend={onRemoveFriend}
                   onGiftCard={handleGiftCard}
