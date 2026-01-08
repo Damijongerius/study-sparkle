@@ -3,7 +3,7 @@ import React from "react";
 type Props = { version?: string };
 
 function getEnvVersion(): string {
-    return "V1.0.1";
+    return "1.0.3";
 }
 
 export default function VersionBadge({ version }: Props) {
