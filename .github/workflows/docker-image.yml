@@ -38,8 +38,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ toLower(github.repository) }}:frontend
-            ghcr.io/${{ toLower(github.repository) }}:frontend-${{ github.sha }}
+            ghcr.io/damijongerius/study-sparkle:frontend
+            ghcr.io/damijongerius/study-sparkle:frontend-${{ github.sha }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v4
@@ -49,8 +49,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ toLower(github.repository) }}:backend
-            ghcr.io/${{ toLower(github.repository) }}:backend-${{ github.sha }}
+            ghcr.io/damijongerius/study-sparkle:backend
+            ghcr.io/damijongerius/study-sparkle:backend-${{ github.sha }}
 
       - name: Verify with docker compose (optional)
         run: |
