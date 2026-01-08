@@ -28,6 +28,9 @@ const categoryColors: Record<string, string> = {
   sparkles: 'bg-lavender',
   space: 'bg-primary/20',
   cozy: 'bg-pink-soft',
+  sports: 'bg-orange-200',
+  music: 'bg-purple-200',
+  weather: 'bg-sky-200',
 };
 
 const categoryLabels: Record<string, string> = {
@@ -37,6 +40,9 @@ const categoryLabels: Record<string, string> = {
   sparkles: '✨ Sparkles',
   space: '🌙 Space',
   cozy: '☕ Cozy',
+  sports: '⚽ Sports',
+  music: '🎵 Music',
+  weather: '🌤️ Weather',
 };
 
 // Hook for horizontal drag scrolling
@@ -83,7 +89,7 @@ export const StickerShop = ({
   canPurchaseToday,
   getTimeUntilNextPurchase,
 }: StickerShopProps) => {
-  const categories = ['animals', 'food', 'nature', 'sparkles', 'space', 'cozy'] as const;
+  const categories = ['animals', 'food', 'nature', 'sparkles', 'space', 'cozy', 'sports', 'music', 'weather'] as const;
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set(['animals']));
 
   const toggleCategory = (category: string) => {
