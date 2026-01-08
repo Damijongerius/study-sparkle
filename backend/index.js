@@ -47,6 +47,7 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, lowercase: true },
   passwordHash: { type: String, required: true },
   friendCode: { type: String, required: true, unique: true },
+  activeSessionId: { type: String, default: null }, // Track active session
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -143,6 +144,10 @@ app.post('/api/auth/signup', async (req, res) => {
     req.session.userId = user._id;
     req.session.username = user.username;
 
+    // Store session ID on user to enforce single session
+    user.activeSessionId = req.session.id;
+    await user.save();
+
     res.json({
       success: true,
       user: { username: user.username, friendCode: user.friendCode }
@@ -152,34 +157,16 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/logout', async (req, res) => {
   try {
-    const { username, password } = req.body;
-
-    const user = await User.findOne({ username: username.toLowerCase() });
-    if (!user) {
-      return res.status(400).json({ error: 'User not found' });
+    // Clear activeSessionId on user
+    if (req.session.userId) {
+      await User.findByIdAndUpdate(req.session.userId, { activeSessionId: null });
     }
-
-    const validPassword = await bcrypt.compare(password, user.passwordHash);
-    if (!validPassword) {
-      return res.status(400).json({ error: 'Invalid password' });
-    }
-
-    // Set session
-    req.session.userId = user._id;
-    req.session.username = user.username;
-
-    res.json({
-      success: true,
-      user: { username: user.username, friendCode: user.friendCode }
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (e) {
+    console.error('Error clearing session:', e);
   }
-});
-
-app.post('/api/auth/logout', (req, res) => {
+  
   req.session.destroy(err => {
     if (err) {
       return res.status(500).json({ error: 'Logout failed' });
