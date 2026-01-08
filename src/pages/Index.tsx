@@ -83,8 +83,8 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
     if (success) toast.success('New card created with your sticker! 🌟');
   }, [store]);
 
-  const handleCreateCustomCard = useCallback((name: string, goal: string, slots: number) => {
-    store.createCard(name, goal, slots);
+  const handleCreateCustomCard = useCallback((name: string, goal: string, slots: number, allowedCategories?: string[]) => {
+    store.createCard(name, goal, slots, allowedCategories as any);
     toast.success('New sticker card created! ✨');
   }, [store]);
 
@@ -109,7 +109,7 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
 
   const handleGiftCard = (friendUsername: string) => setGiftingTo(friendUsername);
 
-  const handleCreateGiftCard = (name: string, goal: string, slots: number) => {
+  const handleCreateGiftCard = (name: string, goal: string, slots: number, allowedCategories?: string[]) => {
     if (!giftingTo) return;
     const success = store.sendGiftCard(giftingTo, name, goal, slots);
     if (success) {

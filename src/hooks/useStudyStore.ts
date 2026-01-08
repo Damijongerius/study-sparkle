@@ -26,7 +26,21 @@ export interface StickerCard {
   redeemedAt?: Date;
   givenBy?: string; // Username of who gave this card
   givenTo?: string; // Username of who this card is for
+  allowedCategories?: StickerCategory[]; // Empty or undefined = all categories allowed
 }
+
+export type StickerCategory = 'animals' | 'food' | 'nature' | 'sparkles' | 'space' | 'cozy';
+
+export const ALL_CATEGORIES: StickerCategory[] = ['animals', 'food', 'nature', 'sparkles', 'space', 'cozy'];
+
+export const CATEGORY_LABELS: Record<StickerCategory, { label: string; emoji: string }> = {
+  animals: { label: 'Animals', emoji: '🐰' },
+  food: { label: 'Food', emoji: '🍓' },
+  nature: { label: 'Nature', emoji: '🌸' },
+  sparkles: { label: 'Sparkles', emoji: '✨' },
+  space: { label: 'Space', emoji: '🚀' },
+  cozy: { label: 'Cozy', emoji: '☕' },
+};
 
 export type ActivityType = 
   | 'study_complete' 
@@ -144,7 +158,7 @@ const STICKERS: Sticker[] = [
 const getStorageKey = (username?: string) => `cutesy-study-state${username ? `-${username.toLowerCase()}` : ''}`;
 const getGiftCardsKey = (username: string) => `cutesy-gift-cards-${username.toLowerCase()}`;
 
-const createNewCard = (name?: string, slots?: number, goal?: string): StickerCard => {
+const createNewCard = (name?: string, slots?: number, goal?: string, allowedCategories?: StickerCategory[]): StickerCard => {
   return {
     id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     name: name || 'New Card',
@@ -152,10 +166,11 @@ const createNewCard = (name?: string, slots?: number, goal?: string): StickerCar
     goal: goal || undefined,
     stickers: [],
     status: 'in-progress',
+    allowedCategories: allowedCategories || undefined,
   };
 };
 
-const createGiftCard = (name: string, goal: string, slots: number, givenBy: string, givenTo: string): StickerCard => {
+const createGiftCard = (name: string, goal: string, slots: number, givenBy: string, givenTo: string, allowedCategories?: StickerCategory[]): StickerCard => {
   return {
     id: `gift-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     name,
@@ -165,6 +180,7 @@ const createGiftCard = (name: string, goal: string, slots: number, givenBy: stri
     status: 'in-progress',
     givenBy,
     givenTo,
+    allowedCategories: allowedCategories || undefined,
   };
 };
 
@@ -396,9 +412,16 @@ export const useStudyStore = (username?: string) => {
     return `${hours}h ${minutes}m`;
   };
 
-  // Get cards that can receive stickers (in-progress only)
-  const getAvailableCards = (): StickerCard[] => {
-    return state.stickerCards.filter(c => c.status === 'in-progress' && c.stickers.length < c.slots);
+  // Get cards that can receive stickers (in-progress only, respecting category restrictions)
+  const getAvailableCards = (stickerCategory?: StickerCategory): StickerCard[] => {
+    return state.stickerCards.filter(c => {
+      if (c.status !== 'in-progress' || c.stickers.length >= c.slots) return false;
+      // If a category is specified, check if the card accepts it
+      if (stickerCategory && c.allowedCategories && c.allowedCategories.length > 0) {
+        return c.allowedCategories.includes(stickerCategory);
+      }
+      return true;
+    });
   };
 
   // Initiate sticker purchase - returns true if modal should show
@@ -483,8 +506,8 @@ export const useStudyStore = (username?: string) => {
   };
 
   // Create a new card with custom options
-  const createCard = (name?: string, goal?: string, slots?: number): StickerCard => {
-    const newCard = createNewCard(name, slots, goal);
+  const createCard = (name?: string, goal?: string, slots?: number, allowedCategories?: StickerCategory[]): StickerCard => {
+    const newCard = createNewCard(name, slots, goal, allowedCategories);
     setState(prev => ({
       ...prev,
       stickerCards: [...prev.stickerCards, newCard],

@@ -64,12 +64,22 @@ const activitySchema = new mongoose.Schema({
   details: mongoose.Schema.Types.Mixed,
 });
 
+// Notification schema for friend events
+const notificationSchema = new mongoose.Schema({
+  type: { type: String, required: true }, // 'gift_card_completed'
+  fromUsername: String,
+  cardName: String,
+  read: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const stickerCardSchema = new mongoose.Schema({
   name: String,
   slots: Number,
   goal: String,
   givenBy: String,
   givenTo: String,
+  allowedCategories: [{ type: String }], // Empty array = all categories allowed
   stickers: [{ stickerId: String, earnedAt: Date }],
   status: { type: String, enum: ['in-progress', 'done', 'redeemed'], default: 'in-progress' },
   completedAt: Date,
@@ -86,6 +96,7 @@ const userDataSchema = new mongoose.Schema({
   friends: [friendSchema],
   dailyCooldowns: { type: Map, of: String },
   activityLogs: [activitySchema],
+  notifications: [notificationSchema],
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
@@ -338,6 +349,117 @@ app.post('/api/activity', requireAuth, async (req, res) => {
   }
 });
 
+// Deduct points (for pause/reset penalties)
+app.post('/api/points/deduct', requireAuth, async (req, res) => {
+  try {
+    const { amount, reason } = req.body;
+    
+    if (!amount || amount <= 0 || amount > 100) {
+      return res.status(400).json({ error: 'Invalid deduction amount' });
+    }
+    
+    let data = await UserData.findOne({ userId: req.session.userId });
+    if (!data) {
+      return res.status(404).json({ error: 'User data not found' });
+    }
+    
+    data.totalPoints = Math.max(0, data.totalPoints - amount);
+    data.activityLogs.unshift({
+      type: reason || 'point_deduction',
+      timestamp: new Date(),
+      details: { points: -amount }
+    });
+    if (data.activityLogs.length > 500) data.activityLogs = data.activityLogs.slice(0, 500);
+    
+    await data.save();
+    res.json({ success: true, newTotal: data.totalPoints });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get notifications
+app.get('/api/notifications', requireAuth, async (req, res) => {
+  try {
+    const data = await UserData.findOne({ userId: req.session.userId });
+    res.json({ notifications: data?.notifications || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mark notification as read
+app.put('/api/notifications/:id/read', requireAuth, async (req, res) => {
+  try {
+    const data = await UserData.findOne({ userId: req.session.userId });
+    if (!data) return res.status(404).json({ error: 'User not found' });
+    
+    const notification = data.notifications.id(req.params.id);
+    if (notification) {
+      notification.read = true;
+      await data.save();
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Clear all notifications
+app.delete('/api/notifications', requireAuth, async (req, res) => {
+  try {
+    const data = await UserData.findOne({ userId: req.session.userId });
+    if (data) {
+      data.notifications = [];
+      await data.save();
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Complete a card (notify giver if gifted)
+app.post('/api/cards/:cardId/complete', requireAuth, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.session.userId);
+    const data = await UserData.findOne({ userId: req.session.userId });
+    if (!data) return res.status(404).json({ error: 'User not found' });
+    
+    const card = data.stickerCards.id(req.params.cardId);
+    if (!card) return res.status(404).json({ error: 'Card not found' });
+    
+    if (card.stickers.length < card.slots) {
+      return res.status(400).json({ error: 'Card not yet complete' });
+    }
+    
+    card.status = 'done';
+    card.completedAt = new Date();
+    await data.save();
+    
+    // If this was a gifted card, notify the giver
+    if (card.givenBy) {
+      const giver = await User.findOne({ username: card.givenBy.toLowerCase() });
+      if (giver) {
+        const giverData = await UserData.findOne({ userId: giver._id });
+        if (giverData) {
+          giverData.notifications.push({
+            type: 'gift_card_completed',
+            fromUsername: currentUser.username,
+            cardName: card.name,
+            createdAt: new Date()
+          });
+          await giverData.save();
+        }
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Friends Routes
 app.post('/api/friends/add', requireAuth, async (req, res) => {
   try {
@@ -437,7 +559,7 @@ app.get('/api/friends/lookup/:friendCode', requireAuth, async (req, res) => {
 // Gift card route
 app.post('/api/gift-card', requireAuth, async (req, res) => {
   try {
-    const { toUsername, name, goal, slots } = req.body;
+    const { toUsername, name, goal, slots, allowedCategories } = req.body;
     
     // Validate inputs
     if (!toUsername || !name) {
@@ -454,6 +576,16 @@ app.post('/api/gift-card', requireAuth, async (req, res) => {
     
     if (goal && goal.length > 150) {
       return res.status(400).json({ error: 'Goal must be 150 characters or less' });
+    }
+    
+    // Validate categories if provided
+    const validCategories = ['animals', 'food', 'nature', 'sparkles', 'space', 'cozy'];
+    if (allowedCategories && Array.isArray(allowedCategories)) {
+      for (const cat of allowedCategories) {
+        if (!validCategories.includes(cat)) {
+          return res.status(400).json({ error: `Invalid category: ${cat}` });
+        }
+      }
     }
 
     const currentUser = await User.findById(req.session.userId);
@@ -481,6 +613,7 @@ app.post('/api/gift-card', requireAuth, async (req, res) => {
       goal: goal || undefined,
       slots,
       givenBy: currentUser.username,
+      allowedCategories: allowedCategories || [],
       stickers: [],
       status: 'in-progress'
     });

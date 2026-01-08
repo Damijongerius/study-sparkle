@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Gift, ArrowLeft, Sparkles } from 'lucide-react';
+import { StickerCategory, ALL_CATEGORIES, CATEGORY_LABELS } from '@/hooks/useStudyStore';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -15,7 +17,7 @@ import {
 interface CreateGiftCardProps {
   friendUsername: string;
   onCancel: () => void;
-  onCreateCard: (name: string, goal: string, slots: number) => void;
+  onCreateCard: (name: string, goal: string, slots: number, allowedCategories: StickerCategory[]) => void;
 }
 
 const SLOT_OPTIONS = [
@@ -35,10 +37,19 @@ export const CreateGiftCard = ({
   const [name, setName] = useState('');
   const [goal, setGoal] = useState('');
   const [slots, setSlots] = useState(9);
+  const [selectedCategories, setSelectedCategories] = useState<StickerCategory[]>([]);
 
   const handleCreate = () => {
     if (!name.trim()) return;
-    onCreateCard(name.trim(), goal.trim(), slots);
+    onCreateCard(name.trim(), goal.trim(), slots, selectedCategories);
+  };
+
+  const toggleCategory = (category: StickerCategory) => {
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
   };
 
   return (
@@ -87,6 +98,15 @@ export const CreateGiftCard = ({
             </div>
           )}
           <p className="text-xs text-muted-foreground">From: You 💝</p>
+          {selectedCategories.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-1 mt-2">
+              {selectedCategories.map(cat => (
+                <span key={cat} className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                  {CATEGORY_LABELS[cat].emoji} {CATEGORY_LABELS[cat].label}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex justify-center gap-1 mt-3">
             {Array.from({ length: Math.min(slots, 9) }).map((_, i) => (
               <div key={i} className="w-6 h-6 rounded bg-muted/50 border border-dashed border-primary/20 flex items-center justify-center text-xs opacity-50">
@@ -138,6 +158,33 @@ export const CreateGiftCard = ({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Allowed Sticker Categories</label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Choose which sticker types they can use to fill this card. Leave empty for all.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {ALL_CATEGORIES.map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => toggleCategory(category)}
+                className={cn(
+                  "px-3 py-2 rounded-xl text-sm font-medium transition-all border-2",
+                  selectedCategories.includes(category)
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/50 border-muted hover:border-primary/30"
+                )}
+              >
+                {CATEGORY_LABELS[category].emoji} {CATEGORY_LABELS[category].label}
+              </button>
+            ))}
+          </div>
+          {selectedCategories.length === 0 && (
+            <p className="text-xs text-muted-foreground italic">All categories allowed</p>
+          )}
         </div>
       </div>
 
