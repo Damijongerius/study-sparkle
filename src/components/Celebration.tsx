@@ -60,7 +60,7 @@ export const Celebration = ({ show, points, onComplete }: CelebrationProps) => {
       {/* Success message */}
       <div
         className={cn(
-          "bg-card rounded-3xl p-8 shadow-float border-4 border-primary/30",
+          "relative z-10 bg-card rounded-3xl p-8 shadow-float border-4 border-primary/30",
           "animate-pop text-center max-w-sm mx-4"
         )}
       >
