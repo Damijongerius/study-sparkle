@@ -71,18 +71,81 @@ const playAlarmSound = () => {
   playChime(783.99, now + 0.3, 0.6);  // G5
 };
 
+const TIMER_STORAGE_KEY = 'study-timer-state';
+
+interface TimerState {
+  selectedTime: number | null;
+  timeLeft: number;
+  isRunning: boolean;
+  pausePenalty: number;
+  startedAt: number | null; // Timestamp when timer was last started
+}
+
+const loadTimerState = (): TimerState | null => {
+  try {
+    const stored = localStorage.getItem(TIMER_STORAGE_KEY);
+    if (!stored) return null;
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+};
+
+const saveTimerState = (state: TimerState) => {
+  localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
+};
+
+const clearTimerState = () => {
+  localStorage.removeItem(TIMER_STORAGE_KEY);
+};
+
 export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerProps) => {
-  const [selectedTime, setSelectedTime] = useState<number | null>(null);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
+  // Restore state from localStorage on mount
+  const [selectedTime, setSelectedTime] = useState<number | null>(() => {
+    const saved = loadTimerState();
+    return saved?.selectedTime ?? null;
+  });
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const saved = loadTimerState();
+    if (saved?.isRunning && saved.startedAt) {
+      // Calculate elapsed time since timer was running
+      const elapsed = Math.floor((Date.now() - saved.startedAt) / 1000);
+      const remaining = Math.max(0, saved.timeLeft - elapsed);
+      return remaining;
+    }
+    return saved?.timeLeft ?? 0;
+  });
+  const [isRunning, setIsRunning] = useState(() => {
+    const saved = loadTimerState();
+    if (saved?.isRunning && saved.startedAt) {
+      const elapsed = Math.floor((Date.now() - saved.startedAt) / 1000);
+      const remaining = saved.timeLeft - elapsed;
+      return remaining > 0; // Only keep running if time remains
+    }
+    return false;
+  });
+  const [pausePenalty, setPausePenalty] = useState(() => {
+    const saved = loadTimerState();
+    return saved?.pausePenalty ?? 0;
+  });
   const [encouragement, setEncouragement] = useState(ENCOURAGEMENTS[0]);
-  const [pausePenalty, setPausePenalty] = useState(0);
   const [showEffectivenessDialog, setShowEffectivenessDialog] = useState(false);
   const [showPauseWarning, setShowPauseWarning] = useState(false);
   const [showResetWarning, setShowResetWarning] = useState(false);
   const [pendingCompletion, setPendingCompletion] = useState<{ minutes: number; points: number } | null>(null);
 
   const selectedOption = TIME_OPTIONS.find(t => t.minutes === selectedTime);
+
+  // Persist timer state to localStorage
+  useEffect(() => {
+    saveTimerState({
+      selectedTime,
+      timeLeft,
+      isRunning,
+      pausePenalty,
+      startedAt: isRunning ? Date.now() : null,
+    });
+  }, [selectedTime, timeLeft, isRunning, pausePenalty]);
 
   const applyPausePenalty = useCallback(() => {
     setPausePenalty(prev => prev + 5);
@@ -191,6 +254,9 @@ export const StudyTimer = ({ onComplete, registerTimer, onPause }: StudyTimerPro
       setPendingCompletion(null);
       setShowEffectivenessDialog(false);
       setPausePenalty(0);
+      setSelectedTime(null);
+      setTimeLeft(0);
+      clearTimerState(); // Clear persisted state after completion
     }
   };
 
