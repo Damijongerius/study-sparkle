@@ -1,4 +1,4 @@
-import { ActivityLog as ActivityLogType, ActivityType, Reminder } from '@/hooks/useStudyStore';
+import type { ActivityLog as ActivityLogType, ActivityType, Reminder } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -68,8 +68,8 @@ const getActivityMessage = (log: ActivityLogType): string => {
   
   switch (type) {
     case 'study_complete':
-      const effectiveness = details.effectiveness ? ` (${details.effectiveness}/5 effectiveness)` : '';
-      return `Completed ${details.minutes} min study session! +${details.points} pts${effectiveness}`;
+      { const effectiveness = details.effectiveness ? ` (${details.effectiveness}/5 effectiveness)` : '';
+      return `Completed ${details.minutes} min study session! +${details.points} pts${effectiveness}`; }
     case 'study_pause':
       return `Timer paused. ${details.points} pts`;
     case 'sticker_purchase':

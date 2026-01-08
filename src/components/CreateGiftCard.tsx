@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Gift, ArrowLeft, Sparkles } from 'lucide-react';
-import { StickerCategory, ALL_CATEGORIES, CATEGORY_LABELS } from '@/hooks/useStudyStore';
+import type { StickerCategory } from '@/types';
+import { ALL_CATEGORIES, CATEGORY_LABELS } from '@/types';
 import { cn } from '@/lib/utils';
 import {
   Select,

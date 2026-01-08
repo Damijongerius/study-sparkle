@@ -1,112 +1,25 @@
-import { useState, useEffect } from 'react';
-
-export interface Sticker {
-  id: string;
-  name: string;
-  emoji: string;
-  cost: number;
-  category: 'animals' | 'food' | 'nature' | 'sparkles' | 'space' | 'cozy' | 'sports' | 'music' | 'weather';
-}
-
-export interface OwnedSticker {
-  stickerId: string;
-  earnedAt: Date;
-}
-
-export type CardStatus = 'in-progress' | 'done' | 'redeemed';
-
-export interface StickerCard {
-  id: string;
-  name: string;
-  goal?: string; // Reward description for completing the card
-  slots: number;
-  stickers: OwnedSticker[];
-  status: CardStatus;
-  completedAt?: Date;
-  redeemedAt?: Date;
-  givenBy?: string; // Username of who gave this card
-  givenTo?: string; // Username of who this card is for
-  allowedCategories?: StickerCategory[]; // Empty or undefined = all categories allowed
-}
-
-export type StickerCategory = 'animals' | 'food' | 'nature' | 'sparkles' | 'space' | 'cozy' | 'sports' | 'music' | 'weather';
-
-export const ALL_CATEGORIES: StickerCategory[] = ['animals', 'food', 'nature', 'sparkles', 'space', 'cozy', 'sports', 'music', 'weather'];
-
-export const CATEGORY_LABELS: Record<StickerCategory, { label: string; emoji: string }> = {
-  animals: { label: 'Animals', emoji: '🐰' },
-  food: { label: 'Food', emoji: '🍓' },
-  nature: { label: 'Nature', emoji: '🌸' },
-  sparkles: { label: 'Sparkles', emoji: '✨' },
-  space: { label: 'Space', emoji: '🚀' },
-  cozy: { label: 'Cozy', emoji: '☕' },
-  sports: { label: 'Sports', emoji: '⚽' },
-  music: { label: 'Music', emoji: '🎵' },
-  weather: { label: 'Weather', emoji: '🌤️' },
-};
-
-export type ActivityType = 
-  | 'study_complete' 
-  | 'study_pause' 
-  | 'sticker_purchase' 
-  | 'card_complete' 
-  | 'card_redeem'
-  | 'journal_entry'
-  | 'reminder_set'
-  | 'reminder_triggered';
-
-export interface ActivityLog {
-  id: string;
-  type: ActivityType;
-  timestamp: Date;
-  details: {
-    points?: number;
-    minutes?: number;
-    effectiveness?: number;
-    stickerId?: string;
-    stickerName?: string;
-    cardId?: string;
-    cardName?: string;
-    journalText?: string;
-    reminderText?: string;
-    reminderMinutes?: number;
-  };
-}
-
-export interface Reminder {
-  id: string;
-  text: string;
-  triggerAt: Date;
-  createdAt: Date;
-  triggered: boolean;
-}
-
-export type NotificationType = 'gift_card_completed' | 'gift_card_redeemed';
-
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  fromUsername: string;
-  cardName: string;
-  createdAt: Date;
-  read: boolean;
-}
-
-interface DailyCooldown {
-  [stickerId: string]: string; // ISO date string of last purchase
-}
-
-interface StudyState {
-  totalPoints: number;
-  ownedStickers: OwnedSticker[];
-  totalStudyMinutes: number;
-  studySessions: number;
-  stickerCards: StickerCard[];
-  dailyCooldowns: DailyCooldown;
-  activityLogs: ActivityLog[];
-  reminders: Reminder[];
-  notifications: Notification[];
-}
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { dataApi, giftCardApi, cardsApi, notificationsApi, ApiError } from '@/lib/api';
+import type {
+  Sticker,
+  OwnedSticker,
+  StickerCard,
+  StickerCategory,
+  ActivityType,
+  ActivityLog,
+  Reminder,
+  Notification,
+  DailyCooldown,
+  StudyState,
+} from '@/types';
+import { ALL_CATEGORIES } from '@/types';
+import {
+    BackendActivity,
+    BackendCard,
+    BackendData,
+    BackendNotificationType,
+    BackendStickerEntry
+} from "@/types/backend.ts";
 
 const STICKERS: Sticker[] = [
   // Animals
@@ -200,8 +113,108 @@ const STICKERS: Sticker[] = [
   { id: 'suncloud', name: 'Partly Cloudy', emoji: '⛅', cost: 35, category: 'weather' },
 ];
 
-const getStorageKey = (username?: string) => `cutesy-study-state${username ? `-${username.toLowerCase()}` : ''}`;
-const getGiftCardsKey = (username: string) => `cutesy-gift-cards-${username.toLowerCase()}`;
+const convertBackendData = (backendData: BackendData): StudyState => {
+    const convertCard = (card: BackendCard): StickerCard => ({
+        id:
+            typeof card._id === 'string'
+                ? card._id
+                : card._id?.toString?.() || `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: card.name || 'New Card',
+        goal: card.goal,
+        slots: card.slots || 9,
+        stickers: (card.stickers || []).map((s: BackendStickerEntry) => ({
+            stickerId: s.stickerId,
+            earnedAt: new Date(s.earnedAt),
+        })),
+        status: card.status || (card.completedAt ? 'done' : 'in-progress'),
+        completedAt: card.completedAt ? new Date(card.completedAt) : undefined,
+        redeemedAt: card.redeemedAt ? new Date(card.redeemedAt) : undefined,
+        givenBy: card.givenBy,
+        givenTo: card.givenTo,
+        allowedCategories:
+            card.allowedCategories && card.allowedCategories.length > 0 ? card.allowedCategories : undefined,
+    });
+
+    const convertActivity = (log: BackendActivity): ActivityLog => ({
+        id:
+            typeof log._id === 'string'
+                ? log._id
+                : log._id?.toString?.() || `activity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: log.type,
+        timestamp: new Date(log.timestamp),
+        details: (log.details as ActivityLog['details']) || {},
+    });
+
+    const convertNotification = (notif: BackendNotificationType): Notification => ({
+        id:
+            typeof notif._id === 'string'
+                ? notif._id
+                : notif._id?.toString?.() || `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: notif.type,
+        fromUsername: notif.fromUsername,
+        cardName: notif.cardName,
+        createdAt: new Date(notif.createdAt),
+        read: notif.read || false,
+    });
+
+    return {
+        totalPoints: backendData.totalPoints || 0,
+        ownedStickers: (backendData.ownedStickers || []).map((s: BackendStickerEntry) => ({
+            stickerId: s.stickerId,
+            earnedAt: new Date(s.earnedAt),
+        })),
+        totalStudyMinutes: backendData.totalStudyMinutes || 0,
+        studySessions: backendData.studySessions || 0,
+        stickerCards: (backendData.stickerCards || []).map(convertCard),
+        dailyCooldowns: backendData.dailyCooldowns
+            ? Object.fromEntries(Object.entries(backendData.dailyCooldowns).map(([k, v]) => [k, String(v)]))
+            : {},
+        activityLogs: (backendData.activityLogs || []).map(convertActivity),
+        reminders: [], // Backend doesn't store reminders yet - keeping local for now
+        notifications: (backendData.notifications || []).map(convertNotification),
+    };
+};
+
+// Convert frontend format to backend format
+const convertToBackendFormat = (state: StudyState): any => {
+  return {
+    totalPoints: state.totalPoints,
+    ownedStickers: state.ownedStickers.map(s => ({
+      stickerId: s.stickerId,
+      earnedAt: s.earnedAt,
+    })),
+    totalStudyMinutes: state.totalStudyMinutes,
+    studySessions: state.studySessions,
+    stickerCards: state.stickerCards.map(card => ({
+      name: card.name,
+      slots: card.slots,
+      goal: card.goal,
+      givenBy: card.givenBy,
+      givenTo: card.givenTo,
+      allowedCategories: card.allowedCategories || [],
+      stickers: card.stickers.map(s => ({
+        stickerId: s.stickerId,
+        earnedAt: s.earnedAt,
+      })),
+      status: card.status,
+      completedAt: card.completedAt,
+      redeemedAt: card.redeemedAt,
+    })),
+    dailyCooldowns: state.dailyCooldowns,
+    activityLogs: state.activityLogs.map(log => ({
+      type: log.type,
+      timestamp: log.timestamp,
+      details: log.details,
+    })),
+    notifications: state.notifications.map(n => ({
+      type: n.type,
+      fromUsername: n.fromUsername,
+      cardName: n.cardName,
+      read: n.read,
+      createdAt: n.createdAt,
+    })),
+  };
+};
 
 const createNewCard = (name?: string, slots?: number, goal?: string, allowedCategories?: StickerCategory[]): StickerCard => {
   return {
@@ -215,171 +228,133 @@ const createNewCard = (name?: string, slots?: number, goal?: string, allowedCate
   };
 };
 
-const createGiftCard = (name: string, goal: string, slots: number, givenBy: string, givenTo: string, allowedCategories?: StickerCategory[]): StickerCard => {
-  return {
-    id: `gift-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    name,
-    goal,
-    slots,
-    stickers: [],
-    status: 'in-progress',
-    givenBy,
-    givenTo,
-    allowedCategories: allowedCategories || undefined,
-  };
-};
-
 const generateActivityId = () => `activity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-const getInitialState = (username?: string): StudyState => {
-  if (typeof window === 'undefined') {
-    return { 
-      totalPoints: 0, 
-      ownedStickers: [], 
-      totalStudyMinutes: 0, 
-      studySessions: 0,
-      stickerCards: [createNewCard('Starter Card', 9)],
-      dailyCooldowns: {},
-      activityLogs: [],
-      reminders: [],
-      notifications: [],
-    };
-  }
-  
-  const storageKey = getStorageKey(username);
-  const stored = localStorage.getItem(storageKey);
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-        const state = {
-          ...parsed,
-          ownedStickers: (parsed.ownedStickers || []).map((s: any) => ({
-            ...s,
-            earnedAt: new Date(s.earnedAt)
-          })),
-          stickerCards: (parsed.stickerCards || [createNewCard('Starter Card', 9)]).map((card: any) => ({
-            ...card,
-            status: card.status || (card.completedAt ? 'done' : 'in-progress'),
-            stickers: card.stickers.map((s: any) => ({
-              ...s,
-              earnedAt: new Date(s.earnedAt)
-            })),
-            completedAt: card.completedAt ? new Date(card.completedAt) : undefined,
-            redeemedAt: card.redeemedAt ? new Date(card.redeemedAt) : undefined,
-          })),
-          dailyCooldowns: parsed.dailyCooldowns || {},
-          activityLogs: (parsed.activityLogs || []).map((log: any) => ({
-            ...log,
-            timestamp: new Date(log.timestamp),
-          })),
-          reminders: (parsed.reminders || []).map((r: any) => ({
-            ...r,
-            triggerAt: new Date(r.triggerAt),
-            createdAt: new Date(r.createdAt),
-          })),
-          notifications: (parsed.notifications || []).map((n: any) => ({
-            ...n,
-            createdAt: new Date(n.createdAt),
-          })),
-        };
-      
-      return state;
-    } catch {
-      return { 
-        totalPoints: 0, 
-        ownedStickers: [], 
-        totalStudyMinutes: 0, 
-        studySessions: 0,
-        stickerCards: [createNewCard('Starter Card', 9)],
-        dailyCooldowns: {},
-        activityLogs: [],
-        reminders: [],
-        notifications: [],
-      };
-    }
-  }
-  return { 
-    totalPoints: 0, 
-    ownedStickers: [], 
-    totalStudyMinutes: 0, 
-    studySessions: 0,
-    stickerCards: [createNewCard('Starter Card', 9)],
-    dailyCooldowns: {},
-    activityLogs: [],
-    reminders: [],
-    notifications: [],
-  };
-};
 
 const getTodayDateString = () => {
   return new Date().toISOString().split('T')[0];
 };
 
 export const useStudyStore = (username?: string) => {
-  const [state, setState] = useState<StudyState>(() => getInitialState(username));
+  const [state, setState] = useState<StudyState>(() => ({
+    totalPoints: 0,
+    ownedStickers: [],
+    totalStudyMinutes: 0,
+    studySessions: 0,
+    stickerCards: [createNewCard('Starter Card', 9)],
+    dailyCooldowns: {},
+    activityLogs: [],
+    reminders: [],
+    notifications: [],
+  }));
   const [pendingSticker, setPendingSticker] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check for gift cards from friends on mount
+  // Load data from API on mount
   useEffect(() => {
-    if (!username) return;
-    
-    const giftCardsKey = getGiftCardsKey(username);
-    const stored = localStorage.getItem(giftCardsKey);
-    if (stored) {
-      try {
-        const giftCards: StickerCard[] = JSON.parse(stored).map((card: any) => ({
-          ...card,
-          stickers: card.stickers.map((s: any) => ({
-            ...s,
-            earnedAt: new Date(s.earnedAt),
-          })),
-          completedAt: card.completedAt ? new Date(card.completedAt) : undefined,
-          redeemedAt: card.redeemedAt ? new Date(card.redeemedAt) : undefined,
-        }));
-        
-        // Add gift cards that aren't already in state
-        const existingIds = new Set(state.stickerCards.map(c => c.id));
-        const newGiftCards = giftCards.filter(gc => !existingIds.has(gc.id));
-        
-        if (newGiftCards.length > 0) {
-          setState(prev => ({
-            ...prev,
-            stickerCards: [...newGiftCards, ...prev.stickerCards],
-          }));
-          // Clear the gift cards queue
-          localStorage.removeItem(giftCardsKey);
-        }
-      } catch {}
+    if (!username) {
+      setIsLoading(false);
+      return;
     }
+
+    const loadData = async () => {
+      try {
+        const backendData = await dataApi.getUserData();
+        const convertedData = convertBackendData(backendData);
+        setState(convertedData);
+      } catch (error) {
+        console.error('Failed to load user data:', error);
+        // Keep default state on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
   }, [username]);
 
+  // Load notifications separately (they update more frequently)
   useEffect(() => {
-    const storageKey = getStorageKey(username);
-    localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [state, username]);
+    if (!username || isLoading) return;
 
-  const addActivityLog = (type: ActivityType, details: ActivityLog['details']) => {
+    const loadNotifications = async () => {
+      try {
+        const response = await notificationsApi.getNotifications();
+        setState(prev => ({
+          ...prev,
+          notifications: (response.notifications || []).map((n: any) => ({
+            id: n._id?.toString() || `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            type: n.type,
+            fromUsername: n.fromUsername,
+            cardName: n.cardName,
+            createdAt: new Date(n.createdAt),
+            read: n.read || false,
+          })),
+        }));
+      } catch (error) {
+        console.error('Failed to load notifications:', error);
+      }
+    };
+
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, [username, isLoading]);
+
+  // Save data to API (debounced)
+  const saveToBackend = useCallback(async (newState: StudyState) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const backendFormat = convertToBackendFormat(newState);
+        await dataApi.updateUserData(backendFormat);
+      } catch (error) {
+        console.error('Failed to save user data:', error);
+      }
+    }, 1000); // Debounce by 1 second
+  }, []);
+
+  // Update state and save to backend
+  const updateState = useCallback((updater: (prev: StudyState) => StudyState) => {
+    setState(prev => {
+      const newState = updater(prev);
+      saveToBackend(newState);
+      return newState;
+    });
+  }, [saveToBackend]);
+
+  const addActivityLog = useCallback((type: ActivityType, details: ActivityLog['details']) => {
     const newLog: ActivityLog = {
       id: generateActivityId(),
       type,
       timestamp: new Date(),
       details,
     };
-    
-    setState(prev => ({
+
+    // Save to backend immediately for activity logs
+    dataApi.addActivity({
+      type,
+      timestamp: new Date(),
+      details,
+    }).catch(err => console.error('Failed to save activity:', err));
+
+    updateState(prev => ({
       ...prev,
-      activityLogs: [newLog, ...prev.activityLogs].slice(0, 500), // Keep last 500 logs
+      activityLogs: [newLog, ...prev.activityLogs].slice(0, 500),
     }));
-  };
+  }, [updateState]);
 
-  const addJournalEntry = (text: string) => {
+  const addJournalEntry = useCallback((text: string) => {
     addActivityLog('journal_entry', { journalText: text });
-  };
+  }, [addActivityLog]);
 
-  const addReminder = (text: string, minutes: number) => {
+  const addReminder = useCallback((text: string, minutes: number) => {
     const id = `reminder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const triggerAt = new Date(Date.now() + minutes * 60 * 1000);
-    
+
     const newReminder: Reminder = {
       id,
       text,
@@ -387,106 +362,117 @@ export const useStudyStore = (username?: string) => {
       createdAt: new Date(),
       triggered: false,
     };
-    
-    setState(prev => ({
+
+    updateState(prev => ({
       ...prev,
       reminders: [...prev.reminders, newReminder],
     }));
-    
+
     addActivityLog('reminder_set', { reminderText: text, reminderMinutes: minutes });
-    
+
     return newReminder;
-  };
+  }, [updateState, addActivityLog]);
 
-  const triggerReminder = (reminderId: string) => {
-    const reminder = state.reminders.find(r => r.id === reminderId);
-    if (!reminder || reminder.triggered) return;
-    
-    setState(prev => ({
-      ...prev,
-      reminders: prev.reminders.map(r => 
-        r.id === reminderId ? { ...r, triggered: true } : r
-      ),
-    }));
-    
-    addActivityLog('reminder_triggered', { reminderText: reminder.text });
-  };
+  const triggerReminder = useCallback((reminderId: string) => {
+    updateState(prev => {
+      const reminder = prev.reminders.find(r => r.id === reminderId);
+      if (!reminder || reminder.triggered) return prev;
 
-  const dismissReminder = (reminderId: string) => {
-    setState(prev => ({
+      addActivityLog('reminder_triggered', { reminderText: reminder.text });
+
+      return {
+        ...prev,
+        reminders: prev.reminders.map(r =>
+          r.id === reminderId ? { ...r, triggered: true } : r
+        ),
+      };
+    });
+  }, [updateState, addActivityLog]);
+
+  const dismissReminder = useCallback((reminderId: string) => {
+    updateState(prev => ({
       ...prev,
       reminders: prev.reminders.filter(r => r.id !== reminderId),
     }));
-  };
+  }, [updateState]);
 
-  const getActiveReminders = (): Reminder[] => {
+  const getActiveReminders = useCallback((): Reminder[] => {
     return state.reminders.filter(r => !r.triggered);
-  };
+  }, [state.reminders]);
 
-  const getDueReminders = (): Reminder[] => {
+  const getDueReminders = useCallback((): Reminder[] => {
     const now = new Date();
     return state.reminders.filter(r => !r.triggered && new Date(r.triggerAt) <= now);
-  };
-  const addPoints = (points: number, minutes: number, effectiveness?: number) => {
-    setState(prev => ({
+  }, [state.reminders]);
+
+  const addPoints = useCallback((points: number, minutes: number, effectiveness?: number) => {
+    updateState(prev => ({
       ...prev,
       totalPoints: prev.totalPoints + points,
       totalStudyMinutes: prev.totalStudyMinutes + minutes,
       studySessions: prev.studySessions + 1,
     }));
-    
+
     addActivityLog('study_complete', { points, minutes, effectiveness });
-  };
+  }, [updateState, addActivityLog]);
 
-  const deductPoints = (amount: number, _reason: 'pause' | 'reset') => {
+  const deductPoints = useCallback(async (amount: number, reason: 'pause' | 'reset') => {
     if (!amount || amount <= 0) return;
-    setState(prev => ({
-      ...prev,
-      totalPoints: Math.max(0, prev.totalPoints - amount),
-    }));
-  };
 
-  const logPause = () => {
+    try {
+      const response = await dataApi.deductPoints(amount, reason);
+      updateState(prev => ({
+        ...prev,
+        totalPoints: response.newTotal,
+      }));
+    } catch (error) {
+      console.error('Failed to deduct points:', error);
+      // Fallback: update locally
+      updateState(prev => ({
+        ...prev,
+        totalPoints: Math.max(0, prev.totalPoints - amount),
+      }));
+    }
+  }, [updateState]);
+
+  const logPause = useCallback(() => {
     deductPoints(5, 'pause');
     addActivityLog('study_pause', { points: -5 });
-  };
+  }, [deductPoints, addActivityLog]);
 
-  const canPurchaseToday = (stickerId: string): boolean => {
+  const canPurchaseToday = useCallback((stickerId: string): boolean => {
     const lastPurchase = state.dailyCooldowns[stickerId];
     if (!lastPurchase) return true;
     return lastPurchase !== getTodayDateString();
-  };
+  }, [state.dailyCooldowns]);
 
-  const getTimeUntilNextPurchase = (stickerId: string): string | null => {
+  const getTimeUntilNextPurchase = useCallback((stickerId: string): string | null => {
     const lastPurchase = state.dailyCooldowns[stickerId];
     if (!lastPurchase || lastPurchase !== getTodayDateString()) return null;
-    
+
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
-    
+
     const diff = tomorrow.getTime() - now.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
-    return `${hours}h ${minutes}m`;
-  };
 
-  // Get cards that can receive stickers (in-progress only, respecting category restrictions)
-  const getAvailableCards = (stickerCategory?: StickerCategory): StickerCard[] => {
+    return `${hours}h ${minutes}m`;
+  }, [state.dailyCooldowns]);
+
+  const getAvailableCards = useCallback((stickerCategory?: StickerCategory): StickerCard[] => {
     return state.stickerCards.filter(c => {
       if (c.status !== 'in-progress' || c.stickers.length >= c.slots) return false;
-      // If a category is specified, check if the card accepts it
       if (stickerCategory && c.allowedCategories && c.allowedCategories.length > 0) {
         return c.allowedCategories.includes(stickerCategory);
       }
       return true;
     });
-  };
+  }, [state.stickerCards]);
 
-  // Initiate sticker purchase - returns true if modal should show
-  const initiatePurchase = (stickerId: string): boolean => {
+  const initiatePurchase = useCallback((stickerId: string): boolean => {
     const sticker = STICKERS.find(s => s.id === stickerId);
     if (!sticker || state.totalPoints < sticker.cost) {
       return false;
@@ -498,17 +484,15 @@ export const useStudyStore = (username?: string) => {
 
     setPendingSticker(stickerId);
     return true;
-  };
+  }, [state.totalPoints, canPurchaseToday]);
 
-  // Cancel pending purchase
-  const cancelPurchase = () => {
+  const cancelPurchase = useCallback(() => {
     setPendingSticker(null);
-  };
+  }, []);
 
-  // Confirm purchase to specific card
-  const confirmPurchase = (cardId: string): boolean => {
+  const confirmPurchase = useCallback((cardId: string): boolean => {
     if (!pendingSticker) return false;
-    
+
     const sticker = STICKERS.find(s => s.id === pendingSticker);
     if (!sticker || state.totalPoints < sticker.cost) {
       setPendingSticker(null);
@@ -531,12 +515,11 @@ export const useStudyStore = (username?: string) => {
 
     const newOwnedSticker: OwnedSticker = { stickerId: pendingSticker, earnedAt: new Date() };
 
-    setState(prev => {
+    updateState(prev => {
       const updatedCards = [...prev.stickerCards];
       const targetCard = { ...updatedCards[cardIndex] };
       targetCard.stickers = [...targetCard.stickers, newOwnedSticker];
 
-      // Check if card is now full
       if (targetCard.stickers.length >= targetCard.slots) {
         targetCard.status = 'done';
         targetCard.completedAt = new Date();
@@ -556,8 +539,8 @@ export const useStudyStore = (username?: string) => {
       };
     });
 
-    addActivityLog('sticker_purchase', { 
-      stickerId: pendingSticker, 
+    addActivityLog('sticker_purchase', {
+      stickerId: pendingSticker,
       stickerName: sticker.name,
       points: -sticker.cost,
       cardId,
@@ -567,72 +550,51 @@ export const useStudyStore = (username?: string) => {
     if (willComplete) {
       addActivityLog('card_complete', { cardId, cardName: card.name });
 
-      // If this was a gifted card, notify the giver
-      if (username && card.givenBy) {
-        try {
-          const giverKey = getStorageKey(card.givenBy);
-          const stored = localStorage.getItem(giverKey);
-          if (stored) {
-            const giverState = JSON.parse(stored);
-            const notif: Notification = {
-              id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-              type: 'gift_card_completed',
-              fromUsername: username,
-              cardName: card.name,
-              createdAt: new Date(),
-              read: false,
-            };
-            giverState.notifications = [
-              { ...notif, createdAt: notif.createdAt.toISOString() },
-              ...(giverState.notifications || []),
-            ];
-            localStorage.setItem(giverKey, JSON.stringify(giverState));
-          }
-        } catch {
-          // ignore
-        }
+      // Notify backend that card is complete (for gift cards)
+      if (card.givenBy) {
+        cardsApi.completeCard(cardId).catch(err => console.error('Failed to notify card completion:', err));
       }
     }
 
     setPendingSticker(null);
     return true;
-  };
+  }, [pendingSticker, state.totalPoints, state.stickerCards, updateState, addActivityLog]);
 
-  // Create a new card with custom options
-  const createCard = (name?: string, goal?: string, slots?: number, allowedCategories?: StickerCategory[]): StickerCard => {
+  const createCard = useCallback((name?: string, goal?: string, slots?: number, allowedCategories?: StickerCategory[]): StickerCard => {
     const newCard = createNewCard(name, slots, goal, allowedCategories);
-    setState(prev => ({
+    updateState(prev => ({
       ...prev,
       stickerCards: [...prev.stickerCards, newCard],
     }));
     return newCard;
-  };
+  }, [updateState]);
 
-  // Send a gift card to a friend
-  const sendGiftCard = (friendUsername: string, name: string, goal: string, slots: number): boolean => {
+  const sendGiftCard = useCallback(async (friendUsername: string, name: string, goal: string, slots: number, allowedCategories?: StickerCategory[]): Promise<boolean> => {
     if (!username) return false;
-    
-    const giftCard = createGiftCard(name, goal, slots, username, friendUsername);
-    
-    // Store in friend's gift cards queue
-    const giftCardsKey = getGiftCardsKey(friendUsername);
-    const existing = localStorage.getItem(giftCardsKey);
-    const giftCards: StickerCard[] = existing ? JSON.parse(existing) : [];
-    giftCards.push(giftCard);
-    localStorage.setItem(giftCardsKey, JSON.stringify(giftCards));
-    
-    return true;
-  };
 
-  // Redeem a completed card
-  const redeemCard = (cardId: string): boolean => {
+    try {
+      await giftCardApi.sendGiftCard(
+        friendUsername,
+        name,
+        goal,
+        slots,
+        allowedCategories
+      );
+      return true;
+    } catch (error) {
+      console.error('Failed to send gift card:', error);
+      return false;
+    }
+  }, [username]);
+
+  const redeemCard = useCallback(async (cardId: string): Promise<boolean> => {
     const cardIndex = state.stickerCards.findIndex(c => c.id === cardId);
     if (cardIndex === -1) return false;
-    
+
     const card = state.stickerCards[cardIndex];
     if (card.status !== 'done') return false;
 
-    setState(prev => {
+    updateState(prev => {
       const updatedCards = [...prev.stickerCards];
       updatedCards[cardIndex] = {
         ...updatedCards[cardIndex],
@@ -647,64 +609,61 @@ export const useStudyStore = (username?: string) => {
 
     addActivityLog('card_redeem', { cardId, cardName: card.name });
 
-    // If gifted, notify giver that it was redeemed
-    if (username && card.givenBy) {
-      try {
-        const giverKey = getStorageKey(card.givenBy);
-        const stored = localStorage.getItem(giverKey);
-        if (stored) {
-          const giverState = JSON.parse(stored);
-          const notif: Notification = {
-            id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            type: 'gift_card_redeemed',
-            fromUsername: username,
-            cardName: card.name,
-            createdAt: new Date(),
-            read: false,
-          };
-          giverState.notifications = [
-            { ...notif, createdAt: notif.createdAt.toISOString() },
-            ...(giverState.notifications || []),
-          ];
-          localStorage.setItem(giverKey, JSON.stringify(giverState));
-        }
-      } catch {
-        // ignore
-      }
-    }
-
     return true;
-  };
+  }, [state.stickerCards, updateState, addActivityLog]);
 
-  const hasSticker = (stickerId: string): boolean => {
+  const hasSticker = useCallback((stickerId: string): boolean => {
     return state.ownedStickers.some(s => s.stickerId === stickerId);
-  };
+  }, [state.ownedStickers]);
 
-  const getStickerCount = (stickerId: string): number => {
+  const getStickerCount = useCallback((stickerId: string): number => {
     return state.ownedStickers.filter(s => s.stickerId === stickerId).length;
-  };
+  }, [state.ownedStickers]);
 
-  const markNotificationRead = (notificationId: string) => {
-    setState(prev => ({
-      ...prev,
-      notifications: prev.notifications.map(n =>
-        n.id === notificationId ? { ...n, read: true } : n
-      ),
-    }));
-  };
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    try {
+      await notificationsApi.markAsRead(notificationId);
+      updateState(prev => ({
+        ...prev,
+        notifications: prev.notifications.map(n =>
+          n.id === notificationId ? { ...n, read: true } : n
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+      // Update optimistically
+      updateState(prev => ({
+        ...prev,
+        notifications: prev.notifications.map(n =>
+          n.id === notificationId ? { ...n, read: true } : n
+        ),
+      }));
+    }
+  }, [updateState]);
 
-  const clearNotifications = () => {
-    setState(prev => ({
-      ...prev,
-      notifications: [],
-    }));
-  };
+  const clearNotifications = useCallback(async () => {
+    try {
+      await notificationsApi.clearAll();
+      updateState(prev => ({
+        ...prev,
+        notifications: [],
+      }));
+    } catch (error) {
+      console.error('Failed to clear notifications:', error);
+      // Update optimistically
+      updateState(prev => ({
+        ...prev,
+        notifications: [],
+      }));
+    }
+  }, [updateState]);
 
   return {
     ...state,
     stickers: STICKERS,
     pendingSticker,
     pendingStickerData: pendingSticker ? STICKERS.find(s => s.id === pendingSticker) : null,
+    isLoading,
     addPoints,
     deductPoints,
     logPause,

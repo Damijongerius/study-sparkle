@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Sticker } from '@/hooks/useStudyStore';
+import type { Sticker } from '@/types';
 import { cn } from '@/lib/utils';
 import { ShoppingBag, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import {

@@ -10,7 +10,7 @@ import { ActivityLog } from '@/components/ActivityLog';
 import { FriendsManager } from '@/components/FriendsManager';
 import { CreateGiftCard } from '@/components/CreateGiftCard';
 import { useStudyStore } from '@/hooks/useStudyStore';
-import { Friend } from '@/hooks/useAuth';
+import type { Friend } from '@/types';
 import { Button } from '@/components/ui/button';
 import { BookOpen, ShoppingBag, Sparkles, Heart, ScrollText, LogOut, Users, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -122,12 +122,14 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
 
   const handleGiftCard = (friendUsername: string) => setGiftingTo(friendUsername);
 
-  const handleCreateGiftCard = (name: string, goal: string, slots: number, allowedCategories?: string[]) => {
+  const handleCreateGiftCard = async (name: string, goal: string, slots: number, allowedCategories?: string[]) => {
     if (!giftingTo) return;
-    const success = store.sendGiftCard(giftingTo, name, goal, slots);
+    const success = await store.sendGiftCard(giftingTo, name, goal, slots, allowedCategories as any);
     if (success) {
       toast.success(`Gift card sent to ${giftingTo}! 🎁`);
       setGiftingTo(null);
+    } else {
+      toast.error('Failed to send gift card. Please try again.');
     }
   };
 

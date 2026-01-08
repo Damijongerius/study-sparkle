@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Friend } from '@/hooks/useAuth';
-import type { Notification } from '@/hooks/useStudyStore';
+import type { Friend, Notification } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UserPlus, Users, Copy, X, Gift, Check, Bell } from 'lucide-react';

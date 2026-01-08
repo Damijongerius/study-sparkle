@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
-import { StickerCard as StickerCardType, Sticker, CardStatus, CATEGORY_LABELS, StickerCategory } from '@/hooks/useStudyStore';
+import type { StickerCard as StickerCardType, Sticker, CardStatus, StickerCategory } from '@/types';
+import { CATEGORY_LABELS } from '@/types';
 import { cn } from '@/lib/utils';
 import { Sparkles, Heart, Check, Gift, Plus, Search, Filter, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';

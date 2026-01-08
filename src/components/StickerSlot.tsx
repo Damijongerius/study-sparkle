@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sticker, OwnedSticker } from '@/hooks/useStudyStore';
+import type { Sticker, OwnedSticker } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 

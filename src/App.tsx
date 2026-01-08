@@ -24,26 +24,34 @@ const AuthenticatedApp = () => {
     );
   }
 
-  if (!auth.isAuthenticated) {
-    return <Login onLogin={auth.login} onSignup={auth.signup} />;
-  }
+    if (!auth.isAuthenticated) {
+        return (
+            <Login
+                onLogin={auth.login as (username: string, password: string) => Promise<{ success: boolean; error?: string }>}
+                onSignup={auth.signup as (username: string, password: string) => Promise<{ success: boolean; error?: string }>}
+            />
+        );
+    }
 
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={
-          <Index 
-            user={auth.user!} 
-            friends={auth.friends}
-            onLogout={auth.logout} 
-            onAddFriend={auth.addFriend}
-            onRemoveFriend={auth.removeFriend}
-          />
-        } />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
-  );
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route
+                    path="/"
+                    element={
+                        <Index
+                            user={auth.user!}
+                            friends={auth.friends}
+                            onLogout={auth.logout}
+                            onAddFriend={auth.addFriend as unknown as (code: string) => { success: boolean; error?: string }}
+                            onRemoveFriend={auth.removeFriend}
+                        />
+                    }
+                />
+                <Route path="*" element={<NotFound />} />
+            </Routes>
+        </BrowserRouter>
+    );
 };
 
 const App = () => (

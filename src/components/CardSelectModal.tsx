@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { StickerCard, Sticker, CATEGORY_LABELS } from '@/hooks/useStudyStore';
+import type { StickerCard, Sticker } from '@/types';
+import { CATEGORY_LABELS } from '@/types';
 import { cn } from '@/lib/utils';
 import { Plus, Sparkles, Lock } from 'lucide-react';
 
