@@ -1,14 +1,26 @@
+import { useState, useMemo } from 'react';
 import { StickerCard as StickerCardType, Sticker, CardStatus } from '@/hooks/useStudyStore';
 import { cn } from '@/lib/utils';
-import { Sparkles, Heart, ChevronLeft, ChevronRight, Check, Gift } from 'lucide-react';
+import { Sparkles, Heart, Check, Gift, Plus, Search, Filter, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { StickerSlot } from '@/components/StickerSlot';
+import { CreateCustomCard } from '@/components/CreateCustomCard';
+import { format } from 'date-fns';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface StickerCardProps {
   stickerCards: StickerCardType[];
   allStickers: Sticker[];
   onRedeemCard?: (cardId: string) => void;
+  onCreateCustomCard?: (name: string, goal: string, slots: number) => void;
 }
 
 const statusConfig: Record<CardStatus, { label: string; color: string; icon: React.ReactNode }> = {
@@ -17,14 +29,108 @@ const statusConfig: Record<CardStatus, { label: string; color: string; icon: Rea
   'redeemed': { label: 'Redeemed', color: 'bg-lavender text-purple-700', icon: <Gift className="w-3 h-3" /> },
 };
 
-export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: StickerCardProps) => {
-  const [currentCardIndex, setCurrentCardIndex] = useState(() => {
-    const activeIndex = stickerCards.findIndex(c => c.status === 'in-progress');
-    return activeIndex >= 0 ? activeIndex : 0;
-  });
+type FilterType = 'all' | 'in-progress' | 'done' | 'redeemed' | 'gifted';
+type SortType = 'newest' | 'oldest' | 'progress';
 
-  const currentCard = stickerCards[currentCardIndex];
-  if (!currentCard) return null;
+export const StickerCard = ({ stickerCards, allStickers, onRedeemCard, onCreateCustomCard }: StickerCardProps) => {
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(() => {
+    const activeCard = stickerCards.find(c => c.status === 'in-progress');
+    return activeCard?.id || stickerCards[0]?.id || null;
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<FilterType>('all');
+  const [sortBy, setSortBy] = useState<SortType>('newest');
+  const [showCreateCard, setShowCreateCard] = useState(false);
+
+  // Filter and sort cards
+  const filteredCards = useMemo(() => {
+    let result = [...stickerCards];
+
+    // Filter by search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(card => 
+        card.name.toLowerCase().includes(query) ||
+        card.goal?.toLowerCase().includes(query) ||
+        card.givenBy?.toLowerCase().includes(query)
+      );
+    }
+
+    // Filter by status
+    if (filterStatus !== 'all') {
+      if (filterStatus === 'gifted') {
+        result = result.filter(card => card.givenBy);
+      } else {
+        result = result.filter(card => card.status === filterStatus);
+      }
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      if (sortBy === 'newest') {
+        const aTime = a.completedAt ? new Date(a.completedAt).getTime() : Date.now();
+        const bTime = b.completedAt ? new Date(b.completedAt).getTime() : Date.now();
+        return bTime - aTime;
+      }
+      if (sortBy === 'oldest') {
+        const aTime = a.completedAt ? new Date(a.completedAt).getTime() : Date.now();
+        const bTime = b.completedAt ? new Date(b.completedAt).getTime() : Date.now();
+        return aTime - bTime;
+      }
+      if (sortBy === 'progress') {
+        const aProgress = a.stickers.length / a.slots;
+        const bProgress = b.stickers.length / b.slots;
+        return bProgress - aProgress;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [stickerCards, searchQuery, filterStatus, sortBy]);
+
+  const currentCard = stickerCards.find(c => c.id === selectedCardId);
+
+  const inProgressCount = stickerCards.filter(c => c.status === 'in-progress').length;
+  const doneCount = stickerCards.filter(c => c.status === 'done').length;
+  const redeemedCount = stickerCards.filter(c => c.status === 'redeemed').length;
+
+  const handleCreateCard = (name: string, goal: string, slots: number) => {
+    if (onCreateCustomCard) {
+      onCreateCustomCard(name, goal, slots);
+    }
+    setShowCreateCard(false);
+  };
+
+  if (showCreateCard && onCreateCustomCard) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-fredoka font-bold text-gradient-primary flex items-center justify-center gap-2">
+            <Plus className="w-6 h-6 text-primary" />
+            Create New Card
+          </h2>
+        </div>
+        <CreateCustomCard
+          onCancel={() => setShowCreateCard(false)}
+          onCreateCard={handleCreateCard}
+        />
+      </div>
+    );
+  }
+
+  if (!currentCard) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">No sticker cards yet!</p>
+        {onCreateCustomCard && (
+          <Button variant="cute" className="mt-4" onClick={() => setShowCreateCard(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Your First Card
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   const collectedCount = currentCard.stickers.length;
   const totalSlots = currentCard.slots;
@@ -41,26 +147,15 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
   const slots = Array.from({ length: totalSlots }, (_, i) => {
     const owned = currentCard.stickers[i];
     if (owned) {
-      return allStickers.find(s => s.id === owned.stickerId);
+      const sticker = allStickers.find(s => s.id === owned.stickerId);
+      return { sticker, owned };
     }
-    return null;
+    return { sticker: null, owned: null };
   });
-
-  const goToPrevCard = () => {
-    if (currentCardIndex > 0) setCurrentCardIndex(currentCardIndex - 1);
-  };
-
-  const goToNextCard = () => {
-    if (currentCardIndex < stickerCards.length - 1) setCurrentCardIndex(currentCardIndex + 1);
-  };
-
-  const inProgressCount = stickerCards.filter(c => c.status === 'in-progress').length;
-  const doneCount = stickerCards.filter(c => c.status === 'done').length;
-  const redeemedCount = stickerCards.filter(c => c.status === 'redeemed').length;
 
   return (
     <div className="space-y-6">
-      {/* Header - simplified */}
+      {/* Header */}
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-fredoka font-bold text-gradient-primary flex items-center justify-center gap-2">
           <Heart className="w-6 h-6 text-pink-medium fill-pink-medium" />
@@ -74,37 +169,94 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
         </div>
       </div>
 
-      {/* Card Navigation */}
-      <div className="flex items-center justify-center gap-4">
-        <Button variant="ghost" size="icon" onClick={goToPrevCard} disabled={currentCardIndex === 0}>
-          <ChevronLeft className="w-5 h-5" />
-        </Button>
-        
-        <div className="flex items-center gap-2 flex-wrap justify-center max-w-xs">
-          {stickerCards.map((card, index) => (
-            <button
-              key={card.id}
-              onClick={() => setCurrentCardIndex(index)}
-              className={cn(
-                "w-3 h-3 rounded-full transition-all",
-                index === currentCardIndex 
-                  ? "bg-primary scale-125" 
-                  : card.status === 'redeemed'
-                    ? "bg-lavender"
-                    : card.status === 'done' 
-                      ? "bg-mint" 
-                      : "bg-muted"
-              )}
-            />
-          ))}
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search cards..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
         </div>
-        
-        <Button variant="ghost" size="icon" onClick={goToNextCard} disabled={currentCardIndex === stickerCards.length - 1}>
-          <ChevronRight className="w-5 h-5" />
-        </Button>
+        <div className="flex gap-2">
+          <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as FilterType)}>
+            <SelectTrigger className="w-[130px]">
+              <Filter className="w-4 h-4 mr-1" />
+              <SelectValue placeholder="Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Cards</SelectItem>
+              <SelectItem value="in-progress">In Progress</SelectItem>
+              <SelectItem value="done">Complete</SelectItem>
+              <SelectItem value="redeemed">Redeemed</SelectItem>
+              <SelectItem value="gifted">From Friends</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest</SelectItem>
+              <SelectItem value="oldest">Oldest</SelectItem>
+              <SelectItem value="progress">Progress</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Sticker Card - with title inside */}
+      {/* Card List (horizontal scrollable) */}
+      <div className="relative">
+        <div className="flex gap-3 overflow-x-auto pb-2 px-1 snap-x snap-mandatory scrollbar-thin">
+          {onCreateCustomCard && (
+            <button
+              onClick={() => setShowCreateCard(true)}
+              className="flex-shrink-0 w-28 h-20 rounded-xl border-2 border-dashed border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-1 snap-start"
+            >
+              <Plus className="w-5 h-5 text-primary" />
+              <span className="text-xs font-medium text-primary">New Card</span>
+            </button>
+          )}
+          {filteredCards.map((card) => (
+            <button
+              key={card.id}
+              onClick={() => setSelectedCardId(card.id)}
+              className={cn(
+                "flex-shrink-0 w-28 h-20 rounded-xl border-2 p-2 transition-all snap-start",
+                "flex flex-col items-start justify-between text-left",
+                selectedCardId === card.id
+                  ? "border-primary bg-primary/10 shadow-soft"
+                  : card.status === 'redeemed'
+                    ? "border-lavender/50 bg-lavender/10"
+                    : card.status === 'done'
+                      ? "border-mint/50 bg-mint/10"
+                      : "border-muted hover:border-primary/30"
+              )}
+            >
+              <div className="w-full">
+                <p className="text-xs font-semibold truncate">{card.name}</p>
+                {card.givenBy && (
+                  <p className="text-[10px] text-muted-foreground truncate">From: {card.givenBy}</p>
+                )}
+              </div>
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[10px] text-muted-foreground">
+                  {card.stickers.length}/{card.slots}
+                </span>
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  card.status === 'redeemed' ? "bg-lavender" :
+                  card.status === 'done' ? "bg-mint" : "bg-primary"
+                )} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Selected Card Display */}
       <div className="relative max-w-md mx-auto">
         <div className={cn(
           "bg-gradient-card rounded-3xl p-6 border-4",
@@ -112,7 +264,7 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
           currentCard.status === 'done' ? "border-mint" : "border-primary/30",
           "shadow-float relative overflow-hidden"
         )}>
-          {/* Card Title & Status - now inside the card */}
+          {/* Card Title & Status */}
           <div className="text-center mb-4">
             <div className="flex items-center justify-center gap-2 mb-1">
               <h3 className="font-fredoka text-xl font-bold text-foreground">
@@ -138,6 +290,14 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
                 From: {currentCard.givenBy} 💝
               </p>
             )}
+
+            {/* Completion date */}
+            {currentCard.completedAt && (
+              <div className="flex items-center justify-center gap-1 mt-2 text-xs text-muted-foreground">
+                <Calendar className="w-3 h-3" />
+                Completed: {format(new Date(currentCard.completedAt), 'MMM d, yyyy')}
+              </div>
+            )}
           </div>
 
           {/* Decorative elements */}
@@ -148,36 +308,28 @@ export const StickerCard = ({ stickerCards, allStickers, onRedeemCard }: Sticker
             <Sparkles className="w-4 h-4 text-pink-medium animate-sparkle" style={{ animationDelay: '0.7s' }} />
           </div>
 
-          {/* Sticker grid */}
+          {/* Sticker grid with flippable slots */}
           <div 
             className="grid gap-3"
             style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}
           >
-            {slots.map((sticker, index) => (
-              <div
+            {slots.map((slot, index) => (
+              <StickerSlot
                 key={index}
-                className={cn(
-                  "aspect-square rounded-xl flex items-center justify-center",
-                  "transition-all duration-300",
-                  sticker
-                    ? "bg-card border-2 border-primary/20 shadow-soft animate-pop"
-                    : "bg-muted/50 border-2 border-dashed border-primary/20"
-                )}
-                style={sticker ? { animationDelay: `${index * 0.05}s` } : undefined}
-              >
-                {sticker ? (
-                  <span className="text-2xl sm:text-3xl hover:scale-110 transition-transform cursor-default">
-                    {sticker.emoji}
-                  </span>
-                ) : (
-                  <span className="text-xl opacity-30">?</span>
-                )}
-              </div>
+                sticker={slot.sticker}
+                ownedSticker={slot.owned}
+                index={index}
+              />
             ))}
           </div>
 
+          {/* Tap hint */}
+          <p className="text-center text-xs text-muted-foreground mt-3">
+            💡 Tap a sticker to see when it was added!
+          </p>
+
           {/* Progress bar */}
-          <div className="mt-6 space-y-2">
+          <div className="mt-4 space-y-2">
             <div className="h-3 bg-muted rounded-full overflow-hidden">
               <div
                 className={cn(
