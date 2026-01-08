@@ -1,10 +1,13 @@
-version: '3.8'
-
 services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=eyJhIjoiNzJkNjYxMzlkMjJkY2EyNjM2ZWZjYWM2ZmE2NmI4MzIiLCJ0IjoiZTQ2ZWM5NjMtN2M3Ny00MDE5LThhYmQtY2ZlOTc0Mzc1MTVjIiwicyI6IlkyUmxOakUwTWprdE1XSTRNaTAwWm1JeUxXRXlOell0WTJGalpqUmpaR0ZqTm1GbSJ9
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/damijongerius/study-sparkle:frontend
     container_name: study-buddy-frontend
     restart: unless-stopped
     ports:
@@ -12,7 +15,9 @@ services:
     environment:
       NODE_ENV: production
     depends_on:
-      - api
+      api:
+        condition: service_started
+
   mongodb:
     image: mongo:7
     container_name: study-buddy-mongo
@@ -26,6 +31,11 @@ services:
     volumes:
       - mongodb_data:/data/db
       - ./backend/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -36,9 +46,14 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
-    build: ./backend
+    image: ghcr.io/damijongerius/study-sparkle:backend
     container_name: study-buddy-api
     restart: unless-stopped
     ports:
@@ -50,8 +65,10 @@ services:
       SESSION_SECRET: study-buddy-secret-change-in-production
       PORT: 3001
     depends_on:
-      - mongodb
-      - redis
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   mongodb_data:
