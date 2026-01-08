@@ -3,7 +3,7 @@
  * Handles all communication with the backend API using session-based authentication
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = 'https://api.studybuddyapp.com'; // Replace with your actual API base URL
 
 interface ApiResponse<T> {
   success?: boolean;
