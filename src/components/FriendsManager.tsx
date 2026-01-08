@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Friend } from '@/hooks/useAuth';
+import type { Notification } from '@/hooks/useStudyStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { UserPlus, Users, Copy, X, Gift, Check } from 'lucide-react';
+import { UserPlus, Users, Copy, X, Gift, Check, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface FriendsManagerProps {
   friendCode: string;
   friends: Friend[];
+  notifications: Notification[];
+  onMarkNotificationRead: (id: string) => void;
+  onClearNotifications: () => void;
   onAddFriend: (code: string) => { success: boolean; error?: string };
   onRemoveFriend: (friendCode: string) => void;
   onGiftCard: (friendUsername: string) => void;
@@ -18,6 +22,9 @@ interface FriendsManagerProps {
 export const FriendsManager = ({
   friendCode,
   friends,
+  notifications,
+  onMarkNotificationRead,
+  onClearNotifications,
   onAddFriend,
   onRemoveFriend,
   onGiftCard,
@@ -50,6 +57,8 @@ export const FriendsManager = ({
       toast.error(result.error || 'Failed to add friend');
     }
   };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <div className="space-y-6">
@@ -101,6 +110,60 @@ export const FriendsManager = ({
             Add
           </Button>
         </div>
+      </motion.div>
+
+      {/* Notifications */}
+      <motion.div
+        className="space-y-3"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+      >
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium flex items-center gap-2">
+            <Bell className="w-4 h-4" />
+            Notifications
+            {unreadCount > 0 && (
+              <span className="ml-1 bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </label>
+          {notifications.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={onClearNotifications} className="text-muted-foreground">
+              Clear
+            </Button>
+          )}
+        </div>
+
+        {notifications.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No notifications yet.</p>
+        ) : (
+          <div className="space-y-2">
+            <AnimatePresence>
+              {notifications.slice(0, 10).map((n) => (
+                <motion.button
+                  key={n.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  onClick={() => onMarkNotificationRead(n.id)}
+                  className={cn(
+                    "w-full text-left rounded-xl border-2 px-4 py-3 bg-card transition-all",
+                    n.read ? "border-muted" : "border-primary/30"
+                  )}
+                >
+                  <p className="text-sm font-medium text-foreground">
+                    {n.type === 'gift_card_completed'
+                      ? `${n.fromUsername} completed your gifted card` 
+                      : `${n.fromUsername} redeemed your gifted card`}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">“{n.cardName}”</p>
+                </motion.button>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
       </motion.div>
 
       {/* Friends List */}

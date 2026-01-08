@@ -78,6 +78,17 @@ export interface Reminder {
   triggered: boolean;
 }
 
+export type NotificationType = 'gift_card_completed' | 'gift_card_redeemed';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  fromUsername: string;
+  cardName: string;
+  createdAt: Date;
+  read: boolean;
+}
+
 interface DailyCooldown {
   [stickerId: string]: string; // ISO date string of last purchase
 }
@@ -91,6 +102,7 @@ interface StudyState {
   dailyCooldowns: DailyCooldown;
   activityLogs: ActivityLog[];
   reminders: Reminder[];
+  notifications: Notification[];
 }
 
 const STICKERS: Sticker[] = [
@@ -197,6 +209,7 @@ const getInitialState = (username?: string): StudyState => {
       dailyCooldowns: {},
       activityLogs: [],
       reminders: [],
+      notifications: [],
     };
   }
   
@@ -205,33 +218,37 @@ const getInitialState = (username?: string): StudyState => {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      const state = {
-        ...parsed,
-        ownedStickers: (parsed.ownedStickers || []).map((s: any) => ({
-          ...s,
-          earnedAt: new Date(s.earnedAt)
-        })),
-        stickerCards: (parsed.stickerCards || [createNewCard('Starter Card', 9)]).map((card: any) => ({
-          ...card,
-          status: card.status || (card.completedAt ? 'done' : 'in-progress'),
-          stickers: card.stickers.map((s: any) => ({
+        const state = {
+          ...parsed,
+          ownedStickers: (parsed.ownedStickers || []).map((s: any) => ({
             ...s,
             earnedAt: new Date(s.earnedAt)
           })),
-          completedAt: card.completedAt ? new Date(card.completedAt) : undefined,
-          redeemedAt: card.redeemedAt ? new Date(card.redeemedAt) : undefined,
-        })),
-        dailyCooldowns: parsed.dailyCooldowns || {},
-        activityLogs: (parsed.activityLogs || []).map((log: any) => ({
-          ...log,
-          timestamp: new Date(log.timestamp),
-        })),
-        reminders: (parsed.reminders || []).map((r: any) => ({
-          ...r,
-          triggerAt: new Date(r.triggerAt),
-          createdAt: new Date(r.createdAt),
-        })),
-      };
+          stickerCards: (parsed.stickerCards || [createNewCard('Starter Card', 9)]).map((card: any) => ({
+            ...card,
+            status: card.status || (card.completedAt ? 'done' : 'in-progress'),
+            stickers: card.stickers.map((s: any) => ({
+              ...s,
+              earnedAt: new Date(s.earnedAt)
+            })),
+            completedAt: card.completedAt ? new Date(card.completedAt) : undefined,
+            redeemedAt: card.redeemedAt ? new Date(card.redeemedAt) : undefined,
+          })),
+          dailyCooldowns: parsed.dailyCooldowns || {},
+          activityLogs: (parsed.activityLogs || []).map((log: any) => ({
+            ...log,
+            timestamp: new Date(log.timestamp),
+          })),
+          reminders: (parsed.reminders || []).map((r: any) => ({
+            ...r,
+            triggerAt: new Date(r.triggerAt),
+            createdAt: new Date(r.createdAt),
+          })),
+          notifications: (parsed.notifications || []).map((n: any) => ({
+            ...n,
+            createdAt: new Date(n.createdAt),
+          })),
+        };
       
       return state;
     } catch {
@@ -244,6 +261,7 @@ const getInitialState = (username?: string): StudyState => {
         dailyCooldowns: {},
         activityLogs: [],
         reminders: [],
+        notifications: [],
       };
     }
   }
@@ -256,6 +274,7 @@ const getInitialState = (username?: string): StudyState => {
     dailyCooldowns: {},
     activityLogs: [],
     reminders: [],
+    notifications: [],
   };
 };
 
@@ -386,7 +405,16 @@ export const useStudyStore = (username?: string) => {
     addActivityLog('study_complete', { points, minutes, effectiveness });
   };
 
+  const deductPoints = (amount: number, _reason: 'pause' | 'reset') => {
+    if (!amount || amount <= 0) return;
+    setState(prev => ({
+      ...prev,
+      totalPoints: Math.max(0, prev.totalPoints - amount),
+    }));
+  };
+
   const logPause = () => {
+    deductPoints(5, 'pause');
     addActivityLog('study_pause', { points: -5 });
   };
 
@@ -466,21 +494,23 @@ export const useStudyStore = (username?: string) => {
       return false;
     }
 
+    const willComplete = card.stickers.length + 1 >= card.slots;
+
     const newOwnedSticker: OwnedSticker = { stickerId: pendingSticker, earnedAt: new Date() };
-    
+
     setState(prev => {
       const updatedCards = [...prev.stickerCards];
       const targetCard = { ...updatedCards[cardIndex] };
       targetCard.stickers = [...targetCard.stickers, newOwnedSticker];
-      
+
       // Check if card is now full
       if (targetCard.stickers.length >= targetCard.slots) {
         targetCard.status = 'done';
         targetCard.completedAt = new Date();
       }
-      
+
       updatedCards[cardIndex] = targetCard;
-      
+
       return {
         ...prev,
         totalPoints: prev.totalPoints - sticker.cost,
@@ -500,6 +530,36 @@ export const useStudyStore = (username?: string) => {
       cardId,
       cardName: card.name,
     });
+
+    if (willComplete) {
+      addActivityLog('card_complete', { cardId, cardName: card.name });
+
+      // If this was a gifted card, notify the giver
+      if (username && card.givenBy) {
+        try {
+          const giverKey = getStorageKey(card.givenBy);
+          const stored = localStorage.getItem(giverKey);
+          if (stored) {
+            const giverState = JSON.parse(stored);
+            const notif: Notification = {
+              id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+              type: 'gift_card_completed',
+              fromUsername: username,
+              cardName: card.name,
+              createdAt: new Date(),
+              read: false,
+            };
+            giverState.notifications = [
+              { ...notif, createdAt: notif.createdAt.toISOString() },
+              ...(giverState.notifications || []),
+            ];
+            localStorage.setItem(giverKey, JSON.stringify(giverState));
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
 
     setPendingSticker(null);
     return true;
@@ -553,6 +613,33 @@ export const useStudyStore = (username?: string) => {
     });
 
     addActivityLog('card_redeem', { cardId, cardName: card.name });
+
+    // If gifted, notify giver that it was redeemed
+    if (username && card.givenBy) {
+      try {
+        const giverKey = getStorageKey(card.givenBy);
+        const stored = localStorage.getItem(giverKey);
+        if (stored) {
+          const giverState = JSON.parse(stored);
+          const notif: Notification = {
+            id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            type: 'gift_card_redeemed',
+            fromUsername: username,
+            cardName: card.name,
+            createdAt: new Date(),
+            read: false,
+          };
+          giverState.notifications = [
+            { ...notif, createdAt: notif.createdAt.toISOString() },
+            ...(giverState.notifications || []),
+          ];
+          localStorage.setItem(giverKey, JSON.stringify(giverState));
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     return true;
   };
 
@@ -564,12 +651,29 @@ export const useStudyStore = (username?: string) => {
     return state.ownedStickers.filter(s => s.stickerId === stickerId).length;
   };
 
+  const markNotificationRead = (notificationId: string) => {
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n =>
+        n.id === notificationId ? { ...n, read: true } : n
+      ),
+    }));
+  };
+
+  const clearNotifications = () => {
+    setState(prev => ({
+      ...prev,
+      notifications: [],
+    }));
+  };
+
   return {
     ...state,
     stickers: STICKERS,
     pendingSticker,
     pendingStickerData: pendingSticker ? STICKERS.find(s => s.id === pendingSticker) : null,
     addPoints,
+    deductPoints,
     logPause,
     initiatePurchase,
     confirmPurchase,
@@ -588,6 +692,8 @@ export const useStudyStore = (username?: string) => {
     dismissReminder,
     getActiveReminders,
     getDueReminders,
+    markNotificationRead,
+    clearNotifications,
   };
 };
 
