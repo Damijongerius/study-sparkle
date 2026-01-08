@@ -78,9 +78,14 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
   }, [store]);
 
   const handleCreateCardAndAdd = useCallback(() => {
-    const newCard = store.createCard();
+    const newCard = store.createCard('New Card');
     const success = store.confirmPurchase(newCard.id);
     if (success) toast.success('New card created with your sticker! 🌟');
+  }, [store]);
+
+  const handleCreateCustomCard = useCallback((name: string, goal: string, slots: number) => {
+    store.createCard(name, goal, slots);
+    toast.success('New sticker card created! ✨');
   }, [store]);
 
   const handleRedeemCard = useCallback((cardId: string) => {
@@ -339,6 +344,7 @@ const Index = ({ user, friends, onLogout, onAddFriend, onRemoveFriend }: IndexPr
                     stickerCards={store.stickerCards}
                     allStickers={store.stickers}
                     onRedeemCard={handleRedeemCard}
+                    onCreateCustomCard={handleCreateCustomCard}
                   />
                 </motion.div>
               )}

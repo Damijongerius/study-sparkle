@@ -141,23 +141,15 @@ const STICKERS: Sticker[] = [
   { id: 'plant', name: 'Desk Plant', emoji: '🪴', cost: 50, category: 'cozy' },
 ];
 
-const CARD_TEMPLATES = [
-  { name: 'Starter Card', slots: 9 },
-  { name: 'Collector Card', slots: 12 },
-  { name: 'Pro Card', slots: 16 },
-  { name: 'Master Card', slots: 20 },
-  { name: 'Ultimate Card', slots: 25 },
-];
-
 const getStorageKey = (username?: string) => `cutesy-study-state${username ? `-${username.toLowerCase()}` : ''}`;
 const getGiftCardsKey = (username: string) => `cutesy-gift-cards-${username.toLowerCase()}`;
 
-const createNewCard = (index: number): StickerCard => {
-  const template = CARD_TEMPLATES[Math.min(index, CARD_TEMPLATES.length - 1)];
+const createNewCard = (name?: string, slots?: number, goal?: string): StickerCard => {
   return {
     id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    name: template.name,
-    slots: template.slots,
+    name: name || 'New Card',
+    slots: slots || 9,
+    goal: goal || undefined,
     stickers: [],
     status: 'in-progress',
   };
@@ -185,7 +177,7 @@ const getInitialState = (username?: string): StudyState => {
       ownedStickers: [], 
       totalStudyMinutes: 0, 
       studySessions: 0,
-      stickerCards: [createNewCard(0)],
+      stickerCards: [createNewCard('Starter Card', 9)],
       dailyCooldowns: {},
       activityLogs: [],
       reminders: [],
@@ -203,7 +195,7 @@ const getInitialState = (username?: string): StudyState => {
           ...s,
           earnedAt: new Date(s.earnedAt)
         })),
-        stickerCards: (parsed.stickerCards || [createNewCard(0)]).map((card: any) => ({
+        stickerCards: (parsed.stickerCards || [createNewCard('Starter Card', 9)]).map((card: any) => ({
           ...card,
           status: card.status || (card.completedAt ? 'done' : 'in-progress'),
           stickers: card.stickers.map((s: any) => ({
@@ -232,7 +224,7 @@ const getInitialState = (username?: string): StudyState => {
         ownedStickers: [], 
         totalStudyMinutes: 0, 
         studySessions: 0,
-        stickerCards: [createNewCard(0)],
+        stickerCards: [createNewCard('Starter Card', 9)],
         dailyCooldowns: {},
         activityLogs: [],
         reminders: [],
@@ -244,7 +236,7 @@ const getInitialState = (username?: string): StudyState => {
     ownedStickers: [], 
     totalStudyMinutes: 0, 
     studySessions: 0,
-    stickerCards: [createNewCard(0)],
+    stickerCards: [createNewCard('Starter Card', 9)],
     dailyCooldowns: {},
     activityLogs: [],
     reminders: [],
@@ -490,9 +482,9 @@ export const useStudyStore = (username?: string) => {
     return true;
   };
 
-  // Create a new card
-  const createCard = (): StickerCard => {
-    const newCard = createNewCard(state.stickerCards.length);
+  // Create a new card with custom options
+  const createCard = (name?: string, goal?: string, slots?: number): StickerCard => {
+    const newCard = createNewCard(name, slots, goal);
     setState(prev => ({
       ...prev,
       stickerCards: [...prev.stickerCards, newCard],

@@ -5,6 +5,7 @@ const session = require('express-session');
 const RedisStore = require('connect-redis').default;
 const { createClient } = require('redis');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const app = express();
 
@@ -46,8 +47,8 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/studybudd
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, lowercase: true },
   passwordHash: { type: String, required: true },
-  friendCode: { type: String, required: true, unique: true },
-  activeSessionId: { type: String, default: null }, // Track active session
+  friendCode: { type: String, required: true, unique: true, index: true },
+  activeSessionId: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -90,21 +91,50 @@ const userDataSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 const UserData = mongoose.model('UserData', userDataSchema);
 
-// Helper: generate friend code
-const generateFriendCode = () => {
+// Helper: generate unique friend code
+const generateUniqueFriendCode = async () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  while (attempts < maxAttempts) {
+    let code = '';
+    // Use crypto for better randomness
+    const randomBytes = crypto.randomBytes(6);
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(randomBytes[i] % chars.length);
+    }
+    
+    // Check if code already exists
+    const existing = await User.findOne({ friendCode: code });
+    if (!existing) {
+      return code;
+    }
+    attempts++;
   }
-  return code;
+  
+  // Fallback: use timestamp-based code if random fails
+  const timestamp = Date.now().toString(36).toUpperCase();
+  return timestamp.slice(-6).padStart(6, 'X');
 };
 
 // Auth middleware
-const requireAuth = (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
+  
+  // Verify this is still the active session
+  try {
+    const user = await User.findById(req.session.userId);
+    if (!user || user.activeSessionId !== req.session.id) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ error: 'Session expired - logged in elsewhere' });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: 'Session verification failed' });
+  }
+  
   next();
 };
 
@@ -113,11 +143,16 @@ app.post('/api/auth/signup', async (req, res) => {
   try {
     const { username, password } = req.body;
     
-    if (!username || username.length < 2) {
-      return res.status(400).json({ error: 'Username must be at least 2 characters' });
+    if (!username || username.length < 2 || username.length > 20) {
+      return res.status(400).json({ error: 'Username must be 2-20 characters' });
     }
     if (!password || password.length < 4) {
       return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    }
+    
+    // Validate username format
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores' });
     }
 
     const existingUser = await User.findOne({ username: username.toLowerCase() });
@@ -126,7 +161,7 @@ app.post('/api/auth/signup', async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const friendCode = generateFriendCode();
+    const friendCode = await generateUniqueFriendCode();
 
     const user = await User.create({
       username: username.toLowerCase(),
@@ -153,7 +188,56 @@ app.post('/api/auth/signup', async (req, res) => {
       user: { username: user.username, friendCode: user.friendCode }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Signup error:', err);
+    res.status(500).json({ error: 'Signup failed' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+
+    const user = await User.findOne({ username: username.toLowerCase() });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid username or password' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!validPassword) {
+      return res.status(400).json({ error: 'Invalid username or password' });
+    }
+
+    // Invalidate any existing session
+    if (user.activeSessionId) {
+      try {
+        await redisClient.del(`sess:${user.activeSessionId}`);
+      } catch (e) {
+        console.log('Could not invalidate old session:', e);
+      }
+    }
+
+    // Set new session
+    req.session.userId = user._id;
+    req.session.username = user.username;
+
+    // Store new session ID
+    user.activeSessionId = req.session.id;
+    await user.save();
+
+    const userData = await UserData.findOne({ userId: user._id });
+
+    res.json({
+      success: true,
+      user: { username: user.username, friendCode: user.friendCode },
+      friends: userData?.friends || []
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed' });
   }
 });
 
@@ -185,6 +269,12 @@ app.get('/api/auth/me', async (req, res) => {
     const user = await User.findById(req.session.userId);
     if (!user) {
       return res.json({ user: null });
+    }
+
+    // Check if this is still the active session
+    if (user.activeSessionId !== req.session.id) {
+      req.session.destroy(() => {});
+      return res.json({ user: null, error: 'Session expired' });
     }
 
     const userData = await UserData.findOne({ userId: user._id });
@@ -252,7 +342,16 @@ app.post('/api/activity', requireAuth, async (req, res) => {
 app.post('/api/friends/add', requireAuth, async (req, res) => {
   try {
     const { friendCode } = req.body;
+    
+    if (!friendCode || typeof friendCode !== 'string') {
+      return res.status(400).json({ error: 'Friend code is required' });
+    }
+    
     const normalizedCode = friendCode.toUpperCase().trim();
+    
+    if (normalizedCode.length !== 6) {
+      return res.status(400).json({ error: 'Friend code must be 6 characters' });
+    }
 
     const currentUser = await User.findById(req.session.userId);
     if (currentUser.friendCode === normalizedCode) {
@@ -261,15 +360,16 @@ app.post('/api/friends/add', requireAuth, async (req, res) => {
 
     const friendUser = await User.findOne({ friendCode: normalizedCode });
     if (!friendUser) {
-      return res.status(400).json({ error: 'Friend code not found' });
+      return res.status(400).json({ error: 'Friend code not found. Please check the code and try again.' });
     }
 
     const userData = await UserData.findOne({ userId: req.session.userId });
     const alreadyFriends = userData.friends.some(f => f.friendCode === normalizedCode);
     if (alreadyFriends) {
-      return res.status(400).json({ error: 'Already friends!' });
+      return res.status(400).json({ error: 'Already friends with this person!' });
     }
 
+    // Add friend to current user
     userData.friends.push({
       username: friendUser.username,
       friendCode: friendUser.friendCode,
@@ -277,9 +377,30 @@ app.post('/api/friends/add', requireAuth, async (req, res) => {
     });
     await userData.save();
 
-    res.json({ success: true, friend: userData.friends[userData.friends.length - 1] });
+    // Also add current user to friend's list (mutual friendship)
+    const friendData = await UserData.findOne({ userId: friendUser._id });
+    if (friendData) {
+      const alreadyAdded = friendData.friends.some(f => f.friendCode === currentUser.friendCode);
+      if (!alreadyAdded) {
+        friendData.friends.push({
+          username: currentUser.username,
+          friendCode: currentUser.friendCode,
+          addedAt: new Date()
+        });
+        await friendData.save();
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      friend: {
+        username: friendUser.username,
+        friendCode: friendUser.friendCode
+      }
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Add friend error:', err);
+    res.status(500).json({ error: 'Failed to add friend' });
   }
 });
 
@@ -294,10 +415,47 @@ app.delete('/api/friends/:friendCode', requireAuth, async (req, res) => {
   }
 });
 
+// Get friend by code (for validation)
+app.get('/api/friends/lookup/:friendCode', requireAuth, async (req, res) => {
+  try {
+    const normalizedCode = req.params.friendCode.toUpperCase().trim();
+    const friendUser = await User.findOne({ friendCode: normalizedCode });
+    
+    if (!friendUser) {
+      return res.status(404).json({ error: 'Friend code not found' });
+    }
+    
+    res.json({
+      username: friendUser.username,
+      friendCode: friendUser.friendCode
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Gift card route
 app.post('/api/gift-card', requireAuth, async (req, res) => {
   try {
     const { toUsername, name, goal, slots } = req.body;
+    
+    // Validate inputs
+    if (!toUsername || !name) {
+      return res.status(400).json({ error: 'Recipient and card name are required' });
+    }
+    
+    if (!slots || slots < 6 || slots > 25) {
+      return res.status(400).json({ error: 'Slots must be between 6 and 25' });
+    }
+    
+    if (name.length > 40) {
+      return res.status(400).json({ error: 'Card name must be 40 characters or less' });
+    }
+    
+    if (goal && goal.length > 150) {
+      return res.status(400).json({ error: 'Goal must be 150 characters or less' });
+    }
+
     const currentUser = await User.findById(req.session.userId);
     
     const recipient = await User.findOne({ username: toUsername.toLowerCase() });
@@ -305,14 +463,22 @@ app.post('/api/gift-card', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Recipient not found' });
     }
 
+    // Check if they are actually friends
+    const currentUserData = await UserData.findOne({ userId: req.session.userId });
+    const isFriend = currentUserData.friends.some(f => f.username === recipient.username);
+    if (!isFriend) {
+      return res.status(400).json({ error: 'You can only gift cards to friends' });
+    }
+
     const recipientData = await UserData.findOne({ userId: recipient._id });
     if (!recipientData) {
       return res.status(400).json({ error: 'Recipient data not found' });
     }
 
-    recipientData.stickerCards.push({
+    // Add gift card at the beginning of their cards
+    recipientData.stickerCards.unshift({
       name,
-      goal,
+      goal: goal || undefined,
       slots,
       givenBy: currentUser.username,
       stickers: [],
@@ -320,9 +486,21 @@ app.post('/api/gift-card', requireAuth, async (req, res) => {
     });
     await recipientData.save();
 
+    // Add activity log for sender
+    currentUserData.activityLogs.unshift({
+      type: 'gift_sent',
+      timestamp: new Date(),
+      details: {
+        cardName: name,
+        toUsername: recipient.username
+      }
+    });
+    await currentUserData.save();
+
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Gift card error:', err);
+    res.status(500).json({ error: 'Failed to send gift card' });
   }
 });
 
