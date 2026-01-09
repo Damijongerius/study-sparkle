@@ -56,14 +56,52 @@ const AuthenticatedApp = () => {
 };
 
 const App = () => (
-    <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <AuthenticatedApp />
-            <VersionBadge />
-        </TooltipProvider>
-    </QueryClientProvider>
+<QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <div
+            // invisible helper: watches for notification DOM nodes and plays a short beep
+            ref={el => {
+                if (!el || (el as any).__soundInit) return;
+                (el as any).__soundInit = true;
+                try {
+                    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+                    const ctx = new AudioCtx();
+                    const playBeep = () => {
+                        const o = ctx.createOscillator();
+                        const g = ctx.createGain();
+                        o.connect(g);
+                        g.connect(ctx.destination);
+                        o.type = "sine";
+                        o.frequency.value = 1000;
+                        g.gain.value = 0.04;
+                        o.start();
+                        setTimeout(() => o.stop(), 120);
+                    };
+                    (el as any).__lastBeep = 0;
+                    const observer = new MutationObserver(() => {
+                        const now = Date.now();
+                        // look for elements that commonly represent notifications
+                        const notifs = document.querySelectorAll('[role="status"], [role="alert"], [class*="toast"], [class*="sonner"]');
+                        if (notifs.length && now - (el as any).__lastBeep > 300) {
+                            (el as any).__lastBeep = now;
+                            // resume audio context on first user gesture if needed
+                            if (typeof ctx.resume === "function") ctx.resume().catch(() => {});
+                            try { playBeep(); } catch {}
+                        }
+                    });
+                    observer.observe(document.body, { childList: true, subtree: true });
+                } catch {
+                    /* silent fallback if WebAudio not available */
+                }
+            }}
+            style={{ display: "none" }}
+        />
+        <AuthenticatedApp />
+        <VersionBadge />
+    </TooltipProvider>
+</QueryClientProvider>
 );
 
 export default App;
