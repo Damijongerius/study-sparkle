@@ -98,195 +98,214 @@ export const ActivityLog = ({
   onTriggerReminder,
   getDueReminders,
 }: ActivityLogProps) => {
-  const [journalText, setJournalText] = useState('');
-  const [reminderText, setReminderText] = useState('');
-  const [reminderMinutes, setReminderMinutes] = useState<string>('60');
+    const [journalText, setJournalText] = useState('');
+    const [reminderText, setReminderText] = useState('');
+    const [reminderMinutes, setReminderMinutes] = useState<string>('60');
 
-  // Check for due reminders periodically
-  useEffect(() => {
-    const checkReminders = () => {
-      const dueReminders = getDueReminders();
-      dueReminders.forEach(reminder => {
-        toast.info(`⏰ Reminder: ${reminder.text}`, {
-          duration: 10000,
-          action: {
-            label: 'Dismiss',
-            onClick: () => onDismissReminder(reminder.id),
-          },
+// Schedule reminders using real times (setTimeout) instead of polling
+    useEffect(() => {
+        const timers: Record<string, ReturnType<typeof setTimeout>> = {};
+
+        reminders.forEach((reminder) => {
+            if (reminder.triggered) return;
+
+            const ms = new Date(reminder.triggerAt).getTime() - Date.now();
+
+            if (ms <= 0) {
+                // Already due — fire immediately
+                toast.info(`⏰ Reminder: ${reminder.text}`, {
+                    duration: 10000,
+                    action: {
+                        label: 'Dismiss',
+                        onClick: () => onDismissReminder(reminder.id),
+                    },
+                });
+                onTriggerReminder(reminder.id);
+                return;
+            }
+
+            // Schedule reminder for the exact time
+            timers[reminder.id] = setTimeout(() => {
+                toast.info(`⏰ Reminder: ${reminder.text}`, {
+                    duration: 10000,
+                    action: {
+                        label: 'Dismiss',
+                        onClick: () => onDismissReminder(reminder.id),
+                    },
+                });
+                onTriggerReminder(reminder.id);
+            }, ms);
         });
-        onTriggerReminder(reminder.id);
-      });
+
+        return () => {
+            Object.values(timers).forEach(clearTimeout);
+        };
+    }, [reminders, onTriggerReminder, onDismissReminder]);
+
+    const handleSubmitJournal = () => {
+        if (journalText.trim()) {
+            onAddJournalEntry(journalText.trim());
+            setJournalText('');
+        }
     };
 
-    checkReminders();
-    const interval = setInterval(checkReminders, 10000); // Check every 10 seconds
-    return () => clearInterval(interval);
-  }, [getDueReminders, onTriggerReminder, onDismissReminder]);
+    const handleSubmitReminder = () => {
+        if (reminderText.trim() && reminderMinutes) {
+            onAddReminder(reminderText.trim(), parseInt(reminderMinutes));
+            setReminderText('');
+            toast.success(`Reminder set for ${reminderMinutes} minutes from now! ⏰`);
+        }
+    };
 
-  const handleSubmitJournal = () => {
-    if (journalText.trim()) {
-      onAddJournalEntry(journalText.trim());
-      setJournalText('');
-    }
-  };
+    const activeReminders = reminders.filter(r => !r.triggered);
 
-  const handleSubmitReminder = () => {
-    if (reminderText.trim() && reminderMinutes) {
-      onAddReminder(reminderText.trim(), parseInt(reminderMinutes));
-      setReminderText('');
-      toast.success(`Reminder set for ${reminderMinutes} minutes from now! ⏰`);
-    }
-  };
+    return (
+        <div className="space-y-6">
+            {/* Active Reminders */}
+            {activeReminders.length > 0 && (
+                <div className="space-y-3">
+                    <h3 className="font-fredoka font-bold text-lg text-foreground flex items-center gap-2">
+                        <Timer className="w-5 h-5 text-primary"/>
+                        Active Reminders
+                    </h3>
+                    <div className="space-y-2">
+                        {activeReminders.map(reminder => (
+                            <div
+                                key={reminder.id}
+                                className="flex items-center justify-between gap-3 p-3 rounded-xl bg-blue-50 border-2 border-blue-200"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Bell className="w-5 h-5 text-blue-600"/>
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">{reminder.text}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {formatDistanceToNow(new Date(reminder.triggerAt), {addSuffix: true})}
+                                        </p>
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => onDismissReminder(reminder.id)}
+                                    className="h-8 w-8 p-0"
+                                >
+                                    <X className="w-4 h-4"/>
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
-  const activeReminders = reminders.filter(r => !r.triggered);
-
-  return (
-    <div className="space-y-6">
-      {/* Active Reminders */}
-      {activeReminders.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="font-fredoka font-bold text-lg text-foreground flex items-center gap-2">
-            <Timer className="w-5 h-5 text-primary" />
-            Active Reminders
-          </h3>
-          <div className="space-y-2">
-            {activeReminders.map(reminder => (
-              <div 
-                key={reminder.id}
-                className="flex items-center justify-between gap-3 p-3 rounded-xl bg-blue-50 border-2 border-blue-200"
-              >
-                <div className="flex items-center gap-3">
-                  <Bell className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{reminder.text}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(reminder.triggerAt), { addSuffix: true })}
-                    </p>
-                  </div>
+            {/* Set Reminder Form */}
+            <div className="space-y-3">
+                <h3 className="font-fredoka font-bold text-lg text-foreground flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-primary"/>
+                    Set Reminder
+                </h3>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                        value={reminderText}
+                        onChange={(e) => setReminderText(e.target.value)}
+                        placeholder="What should I remind you about? 🔔"
+                        className="flex-1"
+                    />
+                    <Select value={reminderMinutes} onValueChange={setReminderMinutes}>
+                        <SelectTrigger className="w-full sm:w-[140px]">
+                            <SelectValue placeholder="When?"/>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {REMINDER_PRESETS.map(preset => (
+                                <SelectItem key={preset.value} value={preset.value.toString()}>
+                                    {preset.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDismissReminder(reminder.id)}
-                  className="h-8 w-8 p-0"
+                    variant="cute"
+                    onClick={handleSubmitReminder}
+                    disabled={!reminderText.trim()}
+                    className="w-full sm:w-auto"
                 >
-                  <X className="w-4 h-4" />
+                    <Bell className="w-4 h-4 mr-2"/>
+                    Set Reminder
                 </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Set Reminder Form */}
-      <div className="space-y-3">
-        <h3 className="font-fredoka font-bold text-lg text-foreground flex items-center gap-2">
-          <Bell className="w-5 h-5 text-primary" />
-          Set Reminder
-        </h3>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Input
-            value={reminderText}
-            onChange={(e) => setReminderText(e.target.value)}
-            placeholder="What should I remind you about? 🔔"
-            className="flex-1"
-          />
-          <Select value={reminderMinutes} onValueChange={setReminderMinutes}>
-            <SelectTrigger className="w-full sm:w-[140px]">
-              <SelectValue placeholder="When?" />
-            </SelectTrigger>
-            <SelectContent>
-              {REMINDER_PRESETS.map(preset => (
-                <SelectItem key={preset.value} value={preset.value.toString()}>
-                  {preset.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Button 
-          variant="cute" 
-          onClick={handleSubmitReminder}
-          disabled={!reminderText.trim()}
-          className="w-full sm:w-auto"
-        >
-          <Bell className="w-4 h-4 mr-2" />
-          Set Reminder
-        </Button>
-      </div>
-
-      {/* Journal Entry Form */}
-      <div className="space-y-3">
-        <h3 className="font-fredoka font-bold text-lg text-foreground flex items-center gap-2">
-          <PenLine className="w-5 h-5 text-primary" />
-          Study Journal
-        </h3>
-        <div className="flex gap-2">
-          <Textarea
-            value={journalText}
-            onChange={(e) => setJournalText(e.target.value)}
-            placeholder="How was your study session? Write your thoughts here... 💭"
-            className="min-h-[80px] resize-none"
-          />
-        </div>
-        <Button 
-          variant="cute" 
-          onClick={handleSubmitJournal}
-          disabled={!journalText.trim()}
-          className="w-full sm:w-auto"
-        >
-          <Send className="w-4 h-4 mr-2" />
-          Add Journal Entry
-        </Button>
-      </div>
-
-      {/* Activity Feed */}
-      <div className="space-y-3">
-        <h3 className="font-fredoka font-bold text-lg text-foreground flex items-center gap-2">
-          <Clock className="w-5 h-5 text-primary" />
-          Activity Feed
-        </h3>
-        
-        <ScrollArea className="h-[400px] rounded-xl border-2 border-primary/10 bg-card p-4">
-          {logs.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Clock className="w-12 h-12 mx-auto mb-4 opacity-30" />
-              <p>No activity yet!</p>
-              <p className="text-sm">Start studying to see your progress here 🌸</p>
             </div>
-          ) : (
+
+            {/* Journal Entry Form */}
             <div className="space-y-3">
-              {logs.map((log) => (
-                <div
-                  key={log.id}
-                  className={cn(
-                    "flex gap-3 p-3 rounded-xl",
-                    log.type === 'journal_entry' ? 'bg-muted/50' : 'bg-background'
-                  )}
-                >
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                    activityColors[log.type]
-                  )}>
-                    {activityIcons[log.type]}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={cn(
-                      "text-sm text-foreground",
-                      log.type === 'journal_entry' && 'italic'
-                    )}>
-                      {getActivityMessage(log)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {format(log.timestamp, 'MMM d, yyyy · h:mm a')}
-                    </p>
-                  </div>
+                <h3 className="font-fredoka font-bold text-lg text-foreground flex items-center gap-2">
+                    <PenLine className="w-5 h-5 text-primary"/>
+                    Study Journal
+                </h3>
+                <div className="flex gap-2">
+                    <Textarea
+                        value={journalText}
+                        onChange={(e) => setJournalText(e.target.value)}
+                        placeholder="How was your study session? Write your thoughts here... 💭"
+                        className="min-h-[80px] resize-none"
+                    />
                 </div>
-              ))}
+                <Button
+                    variant="cute"
+                    onClick={handleSubmitJournal}
+                    disabled={!journalText.trim()}
+                    className="w-full sm:w-auto"
+                >
+                    <Send className="w-4 h-4 mr-2"/>
+                    Add Journal Entry
+                </Button>
             </div>
-          )}
-        </ScrollArea>
-      </div>
-    </div>
-  );
+
+            {/* Activity Feed */}
+            <div className="space-y-3">
+                <h3 className="font-fredoka font-bold text-lg text-foreground flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-primary"/>
+                    Activity Feed
+                </h3>
+
+                <ScrollArea className="h-[400px] rounded-xl border-2 border-primary/10 bg-card p-4">
+                    {logs.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground">
+                            <Clock className="w-12 h-12 mx-auto mb-4 opacity-30"/>
+                            <p>No activity yet!</p>
+                            <p className="text-sm">Start studying to see your progress here 🌸</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {logs.map((log) => (
+                                <div
+                                    key={log.id}
+                                    className={cn(
+                                        "flex gap-3 p-3 rounded-xl",
+                                        log.type === 'journal_entry' ? 'bg-muted/50' : 'bg-background'
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                                        activityColors[log.type]
+                                    )}>
+                                        {activityIcons[log.type]}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={cn(
+                                            "text-sm text-foreground",
+                                            log.type === 'journal_entry' && 'italic'
+                                        )}>
+                                            {getActivityMessage(log)}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {format(log.timestamp, 'MMM d, yyyy · h:mm a')}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </ScrollArea>
+            </div>
+        </div>
+    );
 };
