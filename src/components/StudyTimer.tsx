@@ -22,7 +22,6 @@ interface StudyTimerProps {
 }
 
 const TIME_OPTIONS = [
-    { minutes: 1, label: '1 min', points: 1500, emoji: '😶‍🌫️' },
   { minutes: 15, label: '15 min', points: 15, emoji: '🌱' },
   { minutes: 25, label: '25 min', points: 30, emoji: '🌸' },
   { minutes: 45, label: '45 min', points: 60, emoji: '🌺' },
@@ -35,6 +34,13 @@ const ENCOURAGEMENTS = [
   "So proud of you! 💖",
   "You've got this! 🎀",
   "Study queen energy! 👑",
+  "Small steps, big wins! 🪴",
+  "Focus mode: activated! 🚀",
+  "One minute at a time — you got this! ⏳",
+  "Progress over perfection! 📈",
+  "Brains and bravery — combo unlocked! 🧠💪",
+  "Today’s effort, tomorrow’s success! 🌞",
+  "Keep the momentum — you're unstoppable! ⚡️",
 ];
 
 const EFFECTIVENESS_OPTIONS = [

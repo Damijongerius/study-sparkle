@@ -1,13 +1,11 @@
-import React from "react";
+
+import React from 'react';
+import { BUILD_VERSION } from '../buildVersion';
 
 type Props = { version?: string };
 
-function getEnvVersion(): string {
-    return "1.0.3";
-}
-
 export default function VersionBadge({ version }: Props) {
-    const ver = version ?? getEnvVersion();
+    const ver = version ?? BUILD_VERSION;
     return (
         <div className="fixed left-4 bottom-4 z-50 pointer-events-none">
             <div
