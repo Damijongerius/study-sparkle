@@ -3,23 +3,13 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
-    "prebuild": "node scripts/increment-build.cjs",
-    "dev": "vite",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
-    "lint": "eslint .",
-    "preview": "vite preview",
+  "main": "electron/main.cjs",
 
-    "build:renderer": "vite build",
-    "prebuild:app": "node scripts/increment-build.cjs",
-    "build:app": "npm run prebuild:app && npm run build:renderer && electron-builder --publish never"
-  },
   "build": {
     "appId": "com.damijongerius.study-sparkle",
     "files": [
       "dist/**",
-      "electron/main.js",
+      "electron/**",
       "package.json"
     ],
     "directories": {
@@ -34,6 +24,19 @@
     "linux": {
       "target": "AppImage"
     }
+  },
+
+  "scripts": {
+    "prebuild": "node scripts/increment-build.cjs",
+    "dev": "vite",
+    "build": "vite build",
+    "build:dev": "vite build --mode development",
+    "lint": "eslint .",
+    "preview": "vite preview",
+
+    "build:renderer": "vite build",
+    "prebuild:app": "node scripts/increment-build.cjs",
+    "build:app": "npm run prebuild:app && npm run build:renderer && electron-builder --publish never"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

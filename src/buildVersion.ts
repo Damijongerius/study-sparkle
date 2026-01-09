@@ -1,2 +1,2 @@
 // generated file — do not edit
-export const BUILD_VERSION = "1.0.6";
+export const BUILD_VERSION = "1.0.9";
