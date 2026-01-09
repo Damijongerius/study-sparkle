@@ -1,0 +1,34 @@
+name: Electron CI build
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  package:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20.x]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Run prebuild (increment version)
+        run: npm run prebuild
+      - name: Build renderer (Vite)
+        run: npm run build:renderer
+      - name: Package with electron-builder
+        run: npm run build:app
+        env:
+          CI: true
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-artifacts-${{ matrix.os }}
+          path: dist/

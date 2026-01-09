@@ -8,7 +8,30 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:renderer": "vite build",
+    "prebuild:app": "node scripts/increment-build.js",
+    "build:app": "npm run prebuild:app && npm run build:renderer && electron-builder --publish never"
+  },
+  "build": {
+    "appId": "com.damijongerius.study-sparkle",
+    "files": [
+      "dist/**",
+      "electron/main.js",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -70,6 +93,9 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^8.0.0",
+    "electron": "^39.2.7",
+    "electron-builder": "^24.0.0",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
@@ -79,6 +105,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wait-on": "^8.0.0"
   }
 }
