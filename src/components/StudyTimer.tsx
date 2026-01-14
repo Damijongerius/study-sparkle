@@ -33,6 +33,7 @@ const TIME_OPTIONS = [
     { minutes: 25, label: '25 min', points: 30, emoji: '🌸' },
     { minutes: 45, label: '45 min', points: 60, emoji: '🌺' },
     { minutes: 60, label: '60 min', points: 100, emoji: '🌻' },
+    { minutes: 120, label: '120 min', points: 220, emoji: '💫' },
 ];
 
 const ENCOURAGEMENTS = [
