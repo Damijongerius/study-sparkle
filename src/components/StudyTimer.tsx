@@ -29,11 +29,11 @@ interface StudyTimerProps {
 }
 
 const TIME_OPTIONS = [
-    { minutes: 15, label: '15 min', points: 15, emoji: '🌱' },
-    { minutes: 25, label: '25 min', points: 30, emoji: '🌸' },
-    { minutes: 45, label: '45 min', points: 60, emoji: '🌺' },
-    { minutes: 60, label: '60 min', points: 100, emoji: '🌻' },
-    { minutes: 120, label: '120 min', points: 220, emoji: '💫' },
+    { id: '15', minutes: 15, label: '15 min', basePoints: 15, emoji: '🌱', decayFactor: 0.85 },
+    { id: '25', minutes: 25, label: '25 min', basePoints: 30, emoji: '🌸', decayFactor: 0.85 },
+    { id: '45', minutes: 45, label: '45 min', basePoints: 60, emoji: '🌺', decayFactor: 0.85 },
+    { id: '60', minutes: 60, label: '60 min', basePoints: 100, emoji: '🌻', decayFactor: 0.85 },
+    { id: '120', minutes: 120, label: '120 min', basePoints: 220, emoji: '💫', decayFactor: 0.85 },
 ];
 
 const ENCOURAGEMENTS = [
@@ -83,6 +83,7 @@ const playAlarmSound = () => {
     };
 
     const now = audioContext.currentTime;
+
     playChime(523.25, now, 0.4);        // C5
     playChime(659.25, now + 0.15, 0.4); // E5
     playChime(783.99, now + 0.3, 0.6);  // G5
@@ -95,7 +96,8 @@ interface TimerState {
     timeLeft: number;
     isRunning: boolean;
     pausePenalty: number;
-    endAt: number | null; // timestamp in ms when timer should end
+    endAt: number | null;
+    repeatCounts?: Record<string, number>; // added to persist decay/repeat info
 }
 
 const loadTimerState = (): TimerState | null => {
@@ -145,6 +147,7 @@ export const StudyTimer = ({ onComplete, registerTimer, onPenalty }: StudyTimerP
     const [pausePenalty, setPausePenalty] = useState(() => savedState?.pausePenalty ?? 0);
     const [endAt, setEndAt] = useState<number | null>(() => savedState?.endAt ?? null);
 
+    const [repeatCounts, setRepeatCounts] = useState<Record<string, number>>(() => savedState?.repeatCounts ?? {});
     const [encouragement, setEncouragement] = useState(ENCOURAGEMENTS[0]);
     const [showEffectivenessDialog, setShowEffectivenessDialog] = useState(false);
     const [showPauseWarning, setShowPauseWarning] = useState(false);
@@ -161,8 +164,9 @@ export const StudyTimer = ({ onComplete, registerTimer, onPenalty }: StudyTimerP
             isRunning,
             pausePenalty,
             endAt,
+            repeatCounts,
         });
-    }, [selectedTime, timeLeft, isRunning, pausePenalty, endAt]);
+    }, [selectedTime, timeLeft, isRunning, pausePenalty, endAt, repeatCounts]);
 
     const applyPausePenalty = useCallback(() => {
         setPausePenalty(prev => prev + 5);
@@ -192,8 +196,10 @@ export const StudyTimer = ({ onComplete, registerTimer, onPenalty }: StudyTimerP
                     setEndAt(null);
                     playAlarmSound();
                     if (selectedOption) {
-                        const basePoints = Math.max(0, selectedOption.points);
-                        setPendingCompletion({ minutes: selectedOption.minutes, points: basePoints });
+                        const key = String(selectedOption.minutes);
+                        const repeats = repeatCounts[key] ?? 0;
+                        const decayedPoints = Math.max(0, Math.round(selectedOption.basePoints * Math.pow(selectedOption.decayFactor, repeats)));
+                        setPendingCompletion({ minutes: selectedOption.minutes, points: decayedPoints });
                         setShowEffectivenessDialog(true);
                     }
                 }
@@ -206,7 +212,7 @@ export const StudyTimer = ({ onComplete, registerTimer, onPenalty }: StudyTimerP
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [isRunning, endAt, selectedOption]);
+    }, [isRunning, endAt, selectedOption, repeatCounts]);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -284,14 +290,31 @@ export const StudyTimer = ({ onComplete, registerTimer, onPenalty }: StudyTimerP
     const handleEffectivenessSelect = (modifier: number, effectivenessIndex: number) => {
         if (pendingCompletion) {
             const finalPoints = Math.round(pendingCompletion.points * modifier);
-            onComplete(pendingCompletion.minutes, finalPoints, 5 - effectivenessIndex); // 5 = super effective, 1 = not effective
+            onComplete(pendingCompletion.minutes, finalPoints, 5 - effectivenessIndex);
+
+            // increment repeat count for the selected option so next time decay is applied again
+            const key = String(pendingCompletion.minutes);
+            setRepeatCounts(prev => {
+                const next = { ...(prev ?? {}), [key]: (prev?.[key] ?? 0) + 1 };
+                // also persist immediately
+                saveTimerState({
+                    selectedTime: null,
+                    timeLeft: 0,
+                    isRunning: false,
+                    pausePenalty: 0,
+                    endAt: null,
+                    repeatCounts: next,
+                });
+                return next;
+            });
+
             setPendingCompletion(null);
             setShowEffectivenessDialog(false);
             setPausePenalty(0);
             setSelectedTime(null);
             setTimeLeft(0);
             setEndAt(null);
-            clearTimerState(); // Clear persisted state after completion
+            // do not clear repeatCounts from storage so decay accumulates over repeats
         }
     };
 
@@ -318,7 +341,7 @@ export const StudyTimer = ({ onComplete, registerTimer, onPenalty }: StudyTimerP
                     >
                         <span className="text-2xl">{option.emoji}</span>
                         <span className="font-bold">{option.label}</span>
-                        <span className="text-xs text-muted-foreground">+{option.points} pts</span>
+                        <span className="text-xs text-muted-foreground">+{option.basePoints} pts</span>
                     </Button>
                 ))}
             </div>
