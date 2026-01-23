@@ -23,94 +23,94 @@ import {
 
 const STICKERS: Sticker[] = [
   // Animals
-  { id: 'bunny', name: 'Happy Bunny', emoji: '🐰', cost: 50, category: 'animals' },
-  { id: 'cat', name: 'Sleepy Cat', emoji: '😺', cost: 50, category: 'animals' },
-  { id: 'bear', name: 'Study Bear', emoji: '🐻', cost: 75, category: 'animals' },
-  { id: 'panda', name: 'Panda Pal', emoji: '🐼', cost: 100, category: 'animals' },
-  { id: 'unicorn', name: 'Magic Unicorn', emoji: '🦄', cost: 150, category: 'animals' },
-  { id: 'owl', name: 'Wise Owl', emoji: '🦉', cost: 80, category: 'animals' },
-  { id: 'fox', name: 'Clever Fox', emoji: '🦊', cost: 90, category: 'animals' },
-  { id: 'butterfly', name: 'Pretty Butterfly', emoji: '🦋', cost: 60, category: 'animals' },
-  { id: 'penguin', name: 'Cool Penguin', emoji: '🐧', cost: 70, category: 'animals' },
-  { id: 'koala', name: 'Koala Cuddles', emoji: '🐨', cost: 85, category: 'animals' },
-  
-  // Food
-  { id: 'strawberry', name: 'Sweet Strawberry', emoji: '🍓', cost: 30, category: 'food' },
-  { id: 'donut', name: 'Yummy Donut', emoji: '🍩', cost: 40, category: 'food' },
-  { id: 'icecream', name: 'Ice Cream Dream', emoji: '🍦', cost: 45, category: 'food' },
-  { id: 'cake', name: 'Birthday Cake', emoji: '🎂', cost: 80, category: 'food' },
-  { id: 'boba', name: 'Bubble Tea', emoji: '🧋', cost: 60, category: 'food' },
-  { id: 'cookie', name: 'Choco Cookie', emoji: '🍪', cost: 35, category: 'food' },
-  { id: 'cupcake', name: 'Pink Cupcake', emoji: '🧁', cost: 55, category: 'food' },
-  { id: 'candy', name: 'Sweet Candy', emoji: '🍬', cost: 25, category: 'food' },
-  { id: 'lollipop', name: 'Lollipop', emoji: '🍭', cost: 30, category: 'food' },
-  { id: 'cherries', name: 'Cherry Twins', emoji: '🍒', cost: 40, category: 'food' },
-  
-  // Nature
-  { id: 'flower', name: 'Pretty Flower', emoji: '🌸', cost: 35, category: 'nature' },
-  { id: 'rainbow', name: 'Rainbow Magic', emoji: '🌈', cost: 90, category: 'nature' },
-  { id: 'sunflower', name: 'Sunny Flower', emoji: '🌻', cost: 45, category: 'nature' },
-  { id: 'tulip', name: 'Tulip Love', emoji: '🌷', cost: 40, category: 'nature' },
-  { id: 'mushroom', name: 'Magic Mushroom', emoji: '🍄', cost: 50, category: 'nature' },
-  { id: 'leaf', name: 'Lucky Leaf', emoji: '🍀', cost: 55, category: 'nature' },
-  { id: 'rose', name: 'Red Rose', emoji: '🌹', cost: 65, category: 'nature' },
-  { id: 'hibiscus', name: 'Hibiscus', emoji: '🌺', cost: 45, category: 'nature' },
-  
-  // Sparkles
-  { id: 'star', name: 'Shiny Star', emoji: '⭐', cost: 55, category: 'sparkles' },
-  { id: 'sparkles', name: 'Sparkle Time', emoji: '✨', cost: 40, category: 'sparkles' },
-  { id: 'heart', name: 'Love Heart', emoji: '💖', cost: 65, category: 'sparkles' },
-  { id: 'crown', name: 'Study Queen', emoji: '👑', cost: 200, category: 'sparkles' },
-  { id: 'gem', name: 'Pink Gem', emoji: '💎', cost: 120, category: 'sparkles' },
-  { id: 'ribbon', name: 'Gift Ribbon', emoji: '🎀', cost: 45, category: 'sparkles' },
-  { id: 'balloon', name: 'Party Balloon', emoji: '🎈', cost: 35, category: 'sparkles' },
-  { id: 'gift', name: 'Surprise Gift', emoji: '🎁', cost: 75, category: 'sparkles' },
-  { id: 'trophy', name: 'Golden Trophy', emoji: '🏆', cost: 180, category: 'sparkles' },
-  
-  // Space
-  { id: 'moon', name: 'Sleepy Moon', emoji: '🌙', cost: 70, category: 'space' },
-  { id: 'planet', name: 'Pink Planet', emoji: '🪐', cost: 95, category: 'space' },
-  { id: 'rocket', name: 'Study Rocket', emoji: '🚀', cost: 110, category: 'space' },
-  { id: 'alien', name: 'Cute Alien', emoji: '👽', cost: 85, category: 'space' },
-  { id: 'comet', name: 'Comet Trail', emoji: '☄️', cost: 100, category: 'space' },
-  
-  // Cozy
-  { id: 'coffee', name: 'Study Coffee', emoji: '☕', cost: 40, category: 'cozy' },
-  { id: 'book', name: 'Favorite Book', emoji: '📚', cost: 50, category: 'cozy' },
-  { id: 'candle', name: 'Cozy Candle', emoji: '🕯️', cost: 45, category: 'cozy' },
-  { id: 'blanket', name: 'Soft Blanket', emoji: '🧶', cost: 55, category: 'cozy' },
-  { id: 'lamp', name: 'Study Lamp', emoji: '💡', cost: 60, category: 'cozy' },
-  { id: 'plant', name: 'Desk Plant', emoji: '🪴', cost: 50, category: 'cozy' },
-  
-  // Sports
-  { id: 'soccer', name: 'Soccer Ball', emoji: '⚽', cost: 45, category: 'sports' },
-  { id: 'basketball', name: 'Basketball', emoji: '🏀', cost: 50, category: 'sports' },
-  { id: 'tennis', name: 'Tennis Ball', emoji: '🎾', cost: 40, category: 'sports' },
-  { id: 'medal', name: 'Gold Medal', emoji: '🥇', cost: 150, category: 'sports' },
-  { id: 'skateboard', name: 'Cool Skateboard', emoji: '🛹', cost: 70, category: 'sports' },
-  { id: 'bowling', name: 'Strike!', emoji: '🎳', cost: 55, category: 'sports' },
-  { id: 'dart', name: 'Bullseye', emoji: '🎯', cost: 65, category: 'sports' },
-  { id: 'pingpong', name: 'Ping Pong', emoji: '🏓', cost: 45, category: 'sports' },
-  
-  // Music
-  { id: 'musicnote', name: 'Music Note', emoji: '🎵', cost: 35, category: 'music' },
-  { id: 'guitar', name: 'Cool Guitar', emoji: '🎸', cost: 80, category: 'music' },
-  { id: 'piano', name: 'Piano Keys', emoji: '🎹', cost: 90, category: 'music' },
-  { id: 'microphone', name: 'Sing Along', emoji: '🎤', cost: 60, category: 'music' },
-  { id: 'headphones', name: 'Headphones', emoji: '🎧', cost: 55, category: 'music' },
-  { id: 'drum', name: 'Drum Beat', emoji: '🥁', cost: 70, category: 'music' },
-  { id: 'violin', name: 'Violin', emoji: '🎻', cost: 100, category: 'music' },
-  { id: 'saxophone', name: 'Saxophone', emoji: '🎷', cost: 85, category: 'music' },
-  
-  // Weather
-  { id: 'sun', name: 'Sunny Day', emoji: '☀️', cost: 40, category: 'weather' },
-  { id: 'cloud', name: 'Fluffy Cloud', emoji: '☁️', cost: 30, category: 'weather' },
-  { id: 'rain', name: 'Rainy Day', emoji: '🌧️', cost: 45, category: 'weather' },
-  { id: 'snow', name: 'Snowflake', emoji: '❄️', cost: 50, category: 'weather' },
-  { id: 'thunder', name: 'Thunder', emoji: '⚡', cost: 75, category: 'weather' },
-  { id: 'tornado', name: 'Tornado', emoji: '🌪️', cost: 120, category: 'weather' },
-  { id: 'umbrella', name: 'Umbrella', emoji: '☂️', cost: 55, category: 'weather' },
-  { id: 'suncloud', name: 'Partly Cloudy', emoji: '⛅', cost: 35, category: 'weather' },
+{ id: 'bunny', name: 'Happy Bunny', emoji: '🐰', cost: 30, category: 'animals' },
+{ id: 'cat', name: 'Sleepy Cat', emoji: '😺', cost: 30, category: 'animals' },
+{ id: 'bear', name: 'Study Bear', emoji: '🐻', cost: 60, category: 'animals' },
+{ id: 'panda', name: 'Panda Pal', emoji: '🐼', cost: 120, category: 'animals' },
+{ id: 'unicorn', name: 'Magic Unicorn', emoji: '🦄', cost: 250, category: 'animals' },
+{ id: 'owl', name: 'Wise Owl', emoji: '🦉', cost: 65, category: 'animals' },
+{ id: 'fox', name: 'Clever Fox', emoji: '🦊', cost: 80, category: 'animals' },
+{ id: 'butterfly', name: 'Pretty Butterfly', emoji: '🦋', cost: 45, category: 'animals' },
+{ id: 'penguin', name: 'Cool Penguin', emoji: '🐧', cost: 70, category: 'animals' },
+{ id: 'koala', name: 'Koala Cuddles', emoji: '🐨', cost: 90, category: 'animals' },
+
+// Food
+{ id: 'strawberry', name: 'Sweet Strawberry', emoji: '🍓', cost: 15, category: 'food' },
+{ id: 'donut', name: 'Yummy Donut', emoji: '🍩', cost: 25, category: 'food' },
+{ id: 'icecream', name: 'Ice Cream Dream', emoji: '🍦', cost: 30, category: 'food' },
+{ id: 'cake', name: 'Birthday Cake', emoji: '🎂', cost: 70, category: 'food' },
+{ id: 'boba', name: 'Bubble Tea', emoji: '🧋', cost: 40, category: 'food' },
+{ id: 'cookie', name: 'Choco Cookie', emoji: '🍪', cost: 20, category: 'food' },
+{ id: 'cupcake', name: 'Pink Cupcake', emoji: '🧁', cost: 35, category: 'food' },
+{ id: 'candy', name: 'Sweet Candy', emoji: '🍬', cost: 10, category: 'food' },
+{ id: 'lollipop', name: 'Lollipop', emoji: '🍭', cost: 15, category: 'food' },
+{ id: 'cherries', name: 'Cherry Twins', emoji: '🍒', cost: 25, category: 'food' },
+
+// Nature
+{ id: 'flower', name: 'Pretty Flower', emoji: '🌸', cost: 20, category: 'nature' },
+{ id: 'rainbow', name: 'Rainbow Magic', emoji: '🌈', cost: 150, category: 'nature' },
+{ id: 'sunflower', name: 'Sunny Flower', emoji: '🌻', cost: 35, category: 'nature' },
+{ id: 'tulip', name: 'Tulip Love', emoji: '🌷', cost: 30, category: 'nature' },
+{ id: 'mushroom', name: 'Magic Mushroom', emoji: '🍄', cost: 45, category: 'nature' },
+{ id: 'leaf', name: 'Lucky Leaf', emoji: '🍀', cost: 50, category: 'nature' },
+{ id: 'rose', name: 'Red Rose', emoji: '🌹', cost: 80, category: 'nature' },
+{ id: 'hibiscus', name: 'Hibiscus', emoji: '🌺', cost: 40, category: 'nature' },
+
+// Sparkles
+{ id: 'star', name: 'Shiny Star', emoji: '⭐', cost: 250, category: 'sparkles' },
+{ id: 'sparkles', name: 'Sparkle Time', emoji: '✨', cost: 205, category: 'sparkles' },
+{ id: 'heart', name: 'Love Heart', emoji: '💖', cost: 405, category: 'sparkles' },
+{ id: 'crown', name: 'Study Queen', emoji: '👑', cost: 1350, category: 'sparkles' },
+{ id: 'gem', name: 'Pink Gem', emoji: '💎', cost: 900, category: 'sparkles' },
+{ id: 'ribbon', name: 'Gift Ribbon', emoji: '🎀', cost: 225, category: 'sparkles' },
+{ id: 'balloon', name: 'Party Balloon', emoji: '🎈', cost: 135, category: 'sparkles' },
+{ id: 'gift', name: 'Surprise Gift', emoji: '🎁', cost: 495, category: 'sparkles' },
+{ id: 'trophy', name: 'Golden Trophy', emoji: '🏆', cost: 1125, category: 'sparkles' },
+
+// Space
+{ id: 'moon', name: 'Sleepy Moon', emoji: '🌙', cost: 80, category: 'space' },
+{ id: 'planet', name: 'Pink Planet', emoji: '🪐', cost: 140, category: 'space' },
+{ id: 'rocket', name: 'Study Rocket', emoji: '🚀', cost: 220, category: 'space' },
+{ id: 'alien', name: 'Cute Alien', emoji: '👽', cost: 95, category: 'space' },
+{ id: 'comet', name: 'Comet Trail', emoji: '☄️', cost: 160, category: 'space' },
+
+// Cozy
+{ id: 'coffee', name: 'Study Coffee', emoji: '☕', cost: 35, category: 'cozy' },
+{ id: 'book', name: 'Favorite Book', emoji: '📚', cost: 50, category: 'cozy' },
+{ id: 'candle', name: 'Cozy Candle', emoji: '🕯️', cost: 40, category: 'cozy' },
+{ id: 'blanket', name: 'Soft Blanket', emoji: '🧶', cost: 60, category: 'cozy' },
+{ id: 'lamp', name: 'Study Lamp', emoji: '💡', cost: 70, category: 'cozy' },
+{ id: 'plant', name: 'Desk Plant', emoji: '🪴', cost: 50, category: 'cozy' },
+
+// Sports
+{ id: 'soccer', name: 'Soccer Ball', emoji: '⚽', cost: 45, category: 'sports' },
+{ id: 'basketball', name: 'Basketball', emoji: '🏀', cost: 50, category: 'sports' },
+{ id: 'tennis', name: 'Tennis Ball', emoji: '🎾', cost: 40, category: 'sports' },
+{ id: 'medal', name: 'Gold Medal', emoji: '🥇', cost: 180, category: 'sports' },
+{ id: 'skateboard', name: 'Cool Skateboard', emoji: '🛹', cost: 90, category: 'sports' },
+{ id: 'bowling', name: 'Strike!', emoji: '🎳', cost: 60, category: 'sports' },
+{ id: 'dart', name: 'Bullseye', emoji: '🎯', cost: 70, category: 'sports' },
+{ id: 'pingpong', name: 'Ping Pong', emoji: '🏓', cost: 45, category: 'sports' },
+
+// Music
+{ id: 'musicnote', name: 'Music Note', emoji: '🎵', cost: 20, category: 'music' },
+{ id: 'guitar', name: 'Cool Guitar', emoji: '🎸', cost: 85, category: 'music' },
+{ id: 'piano', name: 'Piano Keys', emoji: '🎹', cost: 110, category: 'music' },
+{ id: 'microphone', name: 'Sing Along', emoji: '🎤', cost: 65, category: 'music' },
+{ id: 'headphones', name: 'Headphones', emoji: '🎧', cost: 55, category: 'music' },
+{ id: 'drum', name: 'Drum Beat', emoji: '🥁', cost: 75, category: 'music' },
+{ id: 'violin', name: 'Violin', emoji: '🎻', cost: 140, category: 'music' },
+{ id: 'saxophone', name: 'Saxophone', emoji: '🎷', cost: 100, category: 'music' },
+
+// Weather
+{ id: 'sun', name: 'Sunny Day', emoji: '☀️', cost: 35, category: 'weather' },
+{ id: 'cloud', name: 'Fluffy Cloud', emoji: '☁️', cost: 20, category: 'weather' },
+{ id: 'rain', name: 'Rainy Day', emoji: '🌧️', cost: 40, category: 'weather' },
+{ id: 'snow', name: 'Snowflake', emoji: '❄️', cost: 60, category: 'weather' },
+{ id: 'thunder', name: 'Thunder', emoji: '⚡', cost: 120, category: 'weather' },
+{ id: 'tornado', name: 'Tornado', emoji: '🌪️', cost: 220, category: 'weather' },
+{ id: 'umbrella', name: 'Umbrella', emoji: '☂️', cost: 50, category: 'weather' },
+{ id: 'suncloud', name: 'Partly Cloudy', emoji: '⛅', cost: 30, category: 'weather' },
 ];
 
 const convertBackendData = (backendData: BackendData): StudyState => {
