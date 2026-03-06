@@ -1,48 +1,27 @@
 const express = require('express');
-const { UserData } = require('../models');
 const { requireAuth } = require('../middleware/auth');
+const { withUserData } = require('../middleware/userData');
 
 const router = express.Router();
 
-// Get notifications
-router.get('/', requireAuth, async (req, res) => {
-  try {
-    const data = await UserData.findOne({ userId: req.session.userId });
-    res.json({ notifications: data?.notifications || [] });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+router.use(requireAuth);
+router.use(withUserData);
+
+router.get('/', async (req, res) => {
+  res.json({ notifications: req.userData.notifications || [] });
 });
 
-// Mark notification as read
-router.put('/:id/read', requireAuth, async (req, res) => {
+router.put('/:id/read', async (req, res) => {
   try {
-    const data = await UserData.findOne({ userId: req.session.userId });
-    if (!data) return res.status(404).json({ error: 'User not found' });
-    
-    const notification = data.notifications.id(req.params.id);
-    if (notification) {
-      notification.read = true;
-      await data.save();
-    }
+    const notif = req.userData.notifications.id(req.params.id);
+    if (notif) { notif.read = true; await req.userData.save(); }
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Clear all notifications
-router.delete('/', requireAuth, async (req, res) => {
-  try {
-    const data = await UserData.findOne({ userId: req.session.userId });
-    if (data) {
-      data.notifications = [];
-      await data.save();
-    }
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+router.delete('/', async (req, res) => {
+  req.userData.notifications = []; await req.userData.save();
+  res.json({ success: true });
 });
 
 module.exports = router;

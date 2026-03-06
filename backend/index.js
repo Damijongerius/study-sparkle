@@ -15,6 +15,7 @@ const notificationsRoutes = require('./routes/notifications');
 const cardsRoutes = require('./routes/cards');
 const friendsRoutes = require('./routes/friends');
 const giftCardRoutes = require('./routes/giftCard');
+const plannerRoutes = require('./routes/planner');
 
 const app = express();
 
@@ -42,6 +43,17 @@ app.use(express.json());
 const redisClient = createRedisClient();
 app.use(createSessionMiddleware(redisClient));
 
+// Simple logger
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - SID: ${req.sessionID} - Auth: ${!!req.session.userId}`);
+    next();
+});
+
+// Passport
+const passport = require('./config/passport');
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Make redisClient available to routes (for session invalidation)
 app.use((req, res, next) => {
     req.redisClient = redisClient;
@@ -60,6 +72,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/cards', cardsRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/gift-card', giftCardRoutes);
+app.use('/api/planner', plannerRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);

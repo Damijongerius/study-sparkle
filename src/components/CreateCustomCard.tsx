@@ -1,190 +1,29 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Sparkles } from 'lucide-react';
-import type { StickerCategory } from '@/types';
-import { ALL_CATEGORIES, CATEGORY_LABELS } from '@/types';
-import { cn } from '@/lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CardPreview } from './CreateCard/CardPreview';
+import { CategorySelector } from './CreateCard/CategorySelector';
 
-interface CreateCustomCardProps {
-  onCancel: () => void;
-  onCreateCard: (name: string, goal: string, slots: number, allowedCategories: StickerCategory[]) => void;
-}
+interface Props { onCancel: () => void; onCreateCard: (n: string, g: string, s: number, c: any[]) => void; }
 
-const SLOT_OPTIONS = [
-  { value: 6, label: '6 slots (Quick goal)' },
-  { value: 9, label: '9 slots (Short goal)' },
-  { value: 12, label: '12 slots (Medium goal)' },
-  { value: 16, label: '16 slots (Long goal)' },
-  { value: 20, label: '20 slots (Big goal)' },
-  { value: 25, label: '25 slots (Ultimate goal!)' },
-];
-
-export const CreateCustomCard = ({
-  onCancel,
-  onCreateCard,
-}: CreateCustomCardProps) => {
-  const [name, setName] = useState('');
-  const [goal, setGoal] = useState('');
-  const [slots, setSlots] = useState(9);
-  const [selectedCategories, setSelectedCategories] = useState<StickerCategory[]>([]);
-
-  const handleCreate = () => {
-    if (!name.trim()) return;
-    onCreateCard(name.trim(), goal.trim(), slots, selectedCategories);
-  };
-
-  const toggleCategory = (category: StickerCategory) => {
-    setSelectedCategories(prev => 
-      prev.includes(category) 
-        ? prev.filter(c => c !== category)
-        : [...prev, category]
-    );
-  };
+export const CreateCustomCard = ({ onCancel, onCreateCard }: Props) => {
+  const [name, setName] = useState(''); const [goal, setGoal] = useState(''); const [slots, setSlots] = useState(9); const [cats, setCats] = useState<any[]>([]);
+  const toggleCat = (c: any) => setCats(p => p.includes(c) ? p.filter(x => x !== c) : [...p, c]);
 
   return (
-    <motion.div
-      className="space-y-6"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-    >
-      {/* Preview */}
-      <motion.div 
-        className="bg-gradient-card rounded-2xl p-4 border-2 border-primary/30 relative overflow-hidden"
-        initial={{ scale: 0.95 }}
-        animate={{ scale: 1 }}
-      >
-        <div className="absolute top-2 left-2">
-          <Sparkles className="w-4 h-4 text-yellow-soft animate-sparkle" />
-        </div>
-        <div className="absolute top-2 right-2">
-          <Sparkles className="w-3 h-3 text-pink-medium animate-sparkle" style={{ animationDelay: '0.5s' }} />
-        </div>
-        
-        <div className="text-center space-y-2 py-4">
-          <p className="font-fredoka text-lg font-bold text-foreground">
-            {name || 'Your New Card'}
-          </p>
-          {goal && (
-            <div className="bg-primary/10 rounded-xl px-3 py-2 mx-4">
-              <p className="text-xs font-medium text-primary">🎁 Reward:</p>
-              <p className="text-sm">{goal}</p>
-            </div>
-          )}
-          {selectedCategories.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-1 mt-2">
-              {selectedCategories.map(cat => (
-                <span key={cat} className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                  {CATEGORY_LABELS[cat].emoji} {CATEGORY_LABELS[cat].label}
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="flex justify-center gap-1 mt-3">
-            {Array.from({ length: Math.min(slots, 9) }).map((_, i) => (
-              <div key={i} className="w-6 h-6 rounded bg-muted/50 border border-dashed border-primary/20 flex items-center justify-center text-xs opacity-50">
-                ?
-              </div>
-            ))}
-            {slots > 9 && <span className="text-xs text-muted-foreground">+{slots - 9}</span>}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Form */}
+    <motion.div className="space-y-6 text-left" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+      <CardPreview name={name} goal={goal} slots={slots} cats={cats} />
       <div className="space-y-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Card Title *</label>
-          <Input
-            placeholder="e.g., My Study Challenge"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={40}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Reward Description (optional)</label>
-          <Textarea
-            placeholder="e.g., Treat myself to something nice! 🍰"
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
-            maxLength={150}
-            rows={3}
-          />
-          <p className="text-xs text-muted-foreground">
-            What will you reward yourself with when you complete this card?
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Number of Slots</label>
-          <Select value={slots.toString()} onValueChange={(v) => setSlots(Number(v))}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SLOT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value.toString()}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Allowed Sticker Categories</label>
-          <p className="text-xs text-muted-foreground mb-2">
-            Select which sticker types can be placed on this card. Leave empty for all categories.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {ALL_CATEGORIES.map((category) => (
-              <button
-                key={category}
-                type="button"
-                onClick={() => toggleCategory(category)}
-                className={cn(
-                  "px-3 py-2 rounded-xl text-sm font-medium transition-all border-2",
-                  selectedCategories.includes(category)
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted/50 border-muted hover:border-primary/30"
-                )}
-              >
-                {CATEGORY_LABELS[category].emoji} {CATEGORY_LABELS[category].label}
-              </button>
-            ))}
-          </div>
-          {selectedCategories.length === 0 && (
-            <p className="text-xs text-muted-foreground italic">All categories allowed</p>
-          )}
-        </div>
+        <div className="space-y-1"><label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Card Title</label><Input placeholder="e.g. Exam Season" value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl border-2" /></div>
+        <div className="space-y-1"><label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Self Reward</label><Textarea placeholder="What will you earn?" value={goal} onChange={e => setGoal(e.target.value)} className="rounded-xl border-2" /></div>
+        <div className="space-y-1"><label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Slots</label><Select value={slots.toString()} onValueChange={v => setSlots(Number(v))}><SelectTrigger className="h-12 rounded-xl border-2"><SelectValue /></SelectTrigger><SelectContent className="rounded-xl">{[6,9,12,16,20,25].map(s => <SelectItem key={s} value={s.toString()}>{s} Slots</SelectItem>)}</SelectContent></Select></div>
+        <CategorySelector selected={cats} onToggle={toggleCat} />
       </div>
-
-      {/* Actions */}
-      <div className="flex gap-3">
-        <Button variant="outline" className="flex-1" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button 
-          variant="cute" 
-          className="flex-1" 
-          onClick={handleCreate}
-          disabled={!name.trim()}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Card
-        </Button>
-      </div>
+      <div className="flex gap-3"><Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={onCancel}>Cancel</Button><Button variant="cute" className="flex-1 h-12 rounded-xl shadow-glow font-bold gap-2" disabled={!name.trim()} onClick={() => onCreateCard(name, goal, slots, cats)}><Plus className="w-4 h-4" /> Create Card</Button></div>
     </motion.div>
   );
 };

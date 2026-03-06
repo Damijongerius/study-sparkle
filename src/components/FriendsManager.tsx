@@ -1,229 +1,41 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import type { Friend, Notification } from '@/types';
+import React, { useState } from 'react';
+import { Users, UserPlus, Copy, Check } from 'lucide-react';
+import { CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { UserPlus, Users, Copy, X, Gift, Check, Bell } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { FriendsList } from './Friends/FriendsList';
+import { EliteCard } from './shared/EliteCard';
 
-interface FriendsManagerProps {
-  friendCode: string;
-  friends: Friend[];
-  notifications: Notification[];
-  onMarkNotificationRead: (id: string) => void;
-  onClearNotifications: () => void;
-  onAddFriend: (code: string) => { success: boolean; error?: string };
-  onRemoveFriend: (friendCode: string) => void;
-  onGiftCard: (friendUsername: string) => void;
+interface Props {
+  friendCode: string; friends: any[]; onAddFriend: (c: string) => Promise<any>;
+  onRemoveFriend: (c: string) => Promise<any>; onSendGift: (u: string) => void;
 }
 
-export const FriendsManager = ({
-  friendCode,
-  friends,
-  notifications,
-  onMarkNotificationRead,
-  onClearNotifications,
-  onAddFriend,
-  onRemoveFriend,
-  onGiftCard,
-}: FriendsManagerProps) => {
-  const [addFriendCode, setAddFriendCode] = useState('');
+export const FriendsManager = ({ friendCode, friends, onAddFriend, onRemoveFriend, onSendGift }: Props) => {
+  const [code, setCode] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const handleCopyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(friendCode);
-      setCopied(true);
-      toast.success('Friend code copied! 📋');
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error('Failed to copy');
-    }
-  };
-
-  const handleAddFriend = () => {
-    if (!addFriendCode.trim()) {
-      toast.error('Please enter a friend code');
-      return;
-    }
-
-    const result = onAddFriend(addFriendCode.trim());
-    if (result.success) {
-      toast.success('Friend added! 🎉');
-      setAddFriendCode('');
-    } else {
-      toast.error(result.error || 'Failed to add friend');
-    }
-  };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const copy = () => { navigator.clipboard.writeText(friendCode); setCopied(true); setTimeout(() => setCopied(false), 2000); toast.success('Copied! ✨'); };
+  const add = async () => { if(!code) return; const res = await onAddFriend(code); if(res.error) toast.error(res.error); else { setCode(''); toast.success('Friend added! 💖'); } };
 
   return (
-    <div className="space-y-6">
-      {/* Your Friend Code */}
-      <motion.div 
-        className="bg-gradient-to-r from-primary/10 to-lavender/30 rounded-2xl p-4"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <p className="text-sm font-medium text-muted-foreground mb-2">Your Friend Code:</p>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 bg-card rounded-xl px-4 py-3 font-mono text-xl font-bold tracking-widest text-center text-primary">
-            {friendCode}
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleCopyCode}
-            className="shrink-0"
-          >
-            {copied ? <Check className="w-4 h-4 text-mint" /> : <Copy className="w-4 h-4" />}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2 text-center">
-          Share this code so friends can add you! 💝
-        </p>
-      </motion.div>
-
-      {/* Add Friend */}
-      <motion.div 
-        className="space-y-3"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <label className="text-sm font-medium flex items-center gap-2">
-          <UserPlus className="w-4 h-4" />
-          Add a Friend
-        </label>
-        <div className="flex gap-2">
-          <Input
-            placeholder="Enter friend code..."
-            value={addFriendCode}
-            onChange={(e) => setAddFriendCode(e.target.value.toUpperCase())}
-            className="font-mono tracking-widest uppercase"
-            maxLength={6}
-          />
-          <Button variant="cute" onClick={handleAddFriend}>
-            Add
-          </Button>
-        </div>
-      </motion.div>
-
-      {/* Notifications */}
-      <motion.div
-        className="space-y-3"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.08 }}
-      >
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <Bell className="w-4 h-4" />
-            Notifications
-            {unreadCount > 0 && (
-              <span className="ml-1 bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full">
-                {unreadCount}
-              </span>
-            )}
-          </label>
-          {notifications.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={onClearNotifications} className="text-muted-foreground">
-              Clear
-            </Button>
-          )}
-        </div>
-
-        {notifications.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No notifications yet.</p>
-        ) : (
-          <div className="space-y-2">
-            <AnimatePresence>
-              {notifications.slice(0, 10).map((n) => (
-                <motion.button
-                  key={n.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  onClick={() => onMarkNotificationRead(n.id)}
-                  className={cn(
-                    "w-full text-left rounded-xl border-2 px-4 py-3 bg-card transition-all",
-                    n.read ? "border-muted" : "border-primary/30"
-                  )}
-                >
-                  <p className="text-sm font-medium text-foreground">
-                    {n.type === 'gift_card_completed'
-                      ? `${n.fromUsername} completed your gifted card` 
-                      : `${n.fromUsername} redeemed your gifted card`}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">“{n.cardName}”</p>
-                </motion.button>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Friends List */}
-      <motion.div 
-        className="space-y-3"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <label className="text-sm font-medium flex items-center gap-2">
-          <Users className="w-4 h-4" />
-          Friends ({friends.length})
-        </label>
-        
-        {friends.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <p className="text-4xl mb-2">👥</p>
-            <p>No friends yet!</p>
-            <p className="text-sm">Share your code to add friends</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <AnimatePresence>
-              {friends.map((friend) => (
-                <motion.div
-                  key={friend.friendCode}
-                  className="flex items-center gap-3 bg-card rounded-xl px-4 py-3 border-2 border-primary/10"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-lavender flex items-center justify-center text-white font-bold">
-                    {friend.username.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold">{friend.username}</p>
-                    <p className="text-xs text-muted-foreground">{friend.friendCode}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onGiftCard(friend.username)}
-                    className="text-primary hover:bg-primary/10"
-                  >
-                    <Gift className="w-4 h-4 mr-1" />
-                    Gift Card
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onRemoveFriend(friend.friendCode)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </motion.div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+      <EliteCard className="p-8" variant="glass">
+        <CardHeader className="p-0 mb-6"><CardTitle className="flex items-center gap-3 font-fredoka"><Users className="text-primary" /> My Friends</CardTitle></CardHeader>
+        <FriendsList friends={friends} onRemove={onRemoveFriend} onSendGift={onSendGift} />
+      </EliteCard>
+      <div className="space-y-8">
+        <EliteCard className="p-6 bg-primary/5" variant="solid">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-primary/60 ml-1">Your Friend Code</Label>
+          <div className="flex gap-2 mt-2"><div className="flex-1 bg-white rounded-xl border-2 px-4 flex items-center font-mono font-bold text-primary tracking-wider">{friendCode}</div><Button onClick={copy} variant="outline" className="rounded-xl border-2 h-12 w-12">{copied ? <Check className="text-green-500" /> : <Copy />}</Button></div>
+        </EliteCard>
+        <EliteCard className="p-6" variant="solid">
+          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Add by Code</Label>
+          <div className="flex gap-2 mt-2"><Input placeholder="Enter code..." value={code} onChange={e => setCode(e.target.value)} className="rounded-xl h-12 border-2 font-bold" /><Button onClick={add} className="rounded-xl h-12 px-6 shadow-glow font-bold gap-2"><UserPlus className="w-4 h-4" /> Add</Button></div>
+        </EliteCard>
+      </div>
     </div>
   );
 };

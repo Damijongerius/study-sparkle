@@ -1,4 +1,4 @@
-import type {ActivityType, Notification, StickerCard, StickerCategory} from "@/types/study.ts";
+import type {ActivityType, Notification, StickerCard, StickerCategory, PlanStatus} from "@/types/study.ts";
 
 type BackendStickerEntry = {
     stickerId: string;
@@ -35,6 +35,34 @@ type BackendNotificationType = {
     read?: boolean;
 };
 
+type BackendTask = {
+    id: string;
+    title: string;
+    description?: string;
+    status: PlanStatus;
+    dependencies: string[];
+    externalLink?: string;
+    startDate?: string | number | Date;
+    endDate?: string | number | Date;
+    estimatedHours?: number;
+    row?: number;
+    order?: number;
+    linkedTaskId?: string;
+};
+
+type BackendPlan = {
+    id: string;
+    title: string;
+    description?: string;
+    status: PlanStatus;
+    tasks: BackendTask[];
+    examDate?: string | number | Date;
+    startDate?: string | number | Date;
+    endDate?: string | number | Date;
+    type?: 'flow' | 'exam' | 'long-term';
+    enforceDependencies?: boolean;
+};
+
 type BackendData = {
     totalPoints?: number;
     ownedStickers?: BackendStickerEntry[];
@@ -44,6 +72,21 @@ type BackendData = {
     dailyCooldowns?: Record<string, string | number | Date>;
     activityLogs?: BackendActivity[];
     notifications?: BackendNotificationType[];
+    plans?: BackendPlan[];
+    availability?: Array<{ day: number; startHour: number; category: import('@/types/study').AvailabilityCategory }>;
+    agendaItems?: Array<{
+        id: string;
+        title: string;
+        day: number;
+        startTime: number;
+        endTime: number;
+        type: 'task' | 'custom';
+        actionId?: string;
+    }>;
+    agendaSettings?: {
+        actions: Array<{ id: string; label: string; color: string; isSystem: boolean }>;
+        outOfAgenda: Array<{ day: number; wakeTime: number; sleepTime: number }>;
+    };
 };
 
 export type {
@@ -52,4 +95,6 @@ export type {
     BackendCard,
     BackendActivity,
     BackendNotificationType,
+    BackendPlan,
+    BackendTask,
 };

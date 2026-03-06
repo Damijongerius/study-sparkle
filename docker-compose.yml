@@ -3,6 +3,8 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:3001
     container_name: study-buddy-frontend
     restart: unless-stopped
     ports:

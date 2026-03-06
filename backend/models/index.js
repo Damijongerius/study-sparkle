@@ -38,10 +38,47 @@ const stickerCardSchema = new mongoose.Schema({
   redeemedAt: Date,
 });
 
+const taskSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: String,
+  status: { 
+    type: String, 
+    enum: ['pending', 'in-progress', 'completed'], 
+    default: 'pending' 
+  },
+  dependencies: [String], // Titles or IDs of pre-requisite tasks
+  externalLink: String,
+  id: { type: String, required: true },
+  startDate: Date,
+  endDate: Date,
+  estimatedHours: Number,
+  row: Number,
+  order: Number,
+  linkedTaskId: String,
+});
+
+const planSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: String,
+  status: { 
+    type: String, 
+    enum: ['pending', 'in-progress', 'completed'], 
+    default: 'pending' 
+  },
+  tasks: [taskSchema],
+  id: { type: String, required: true },
+  examDate: Date,
+  startDate: Date,
+  endDate: Date,
+  type: { type: String, enum: ['flow', 'exam', 'long-term'], default: 'flow' },
+  enforceDependencies: { type: Boolean, default: false }
+});
+
 // Main schemas
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, lowercase: true },
-  passwordHash: { type: String, required: true },
+  passwordHash: { type: String }, // Optional for Google users
+  googleId: { type: String, unique: true, sparse: true },
   friendCode: { type: String, required: true, unique: true, index: true },
   activeSessionId: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }
@@ -54,10 +91,53 @@ const userDataSchema = new mongoose.Schema({
   studySessions: { type: Number, default: 0 },
   ownedStickers: [{ stickerId: String, earnedAt: Date }],
   stickerCards: [stickerCardSchema],
+  plans: [planSchema],
+  availability: [{
+    day: Number,
+    startHour: Number,
+    category: { type: String, enum: ['study', 'class', 'break', 'sleep', 'other'], default: 'study' }
+  }],
+  agendaItems: [{
+    id: String,
+    title: String,
+    day: Number,
+    date: String,
+    startTime: Number,
+    endTime: Number,
+    type: { type: String, enum: ['task', 'custom'], default: 'custom' },
+    actionId: String,
+    calendarId: String
+  }],
+  agendaSettings: {
+    actions: [{
+        id: String,
+        label: String,
+        color: String,
+        isSystem: { type: Boolean, default: false }
+    }],
+    outOfAgenda: [{
+        day: Number,
+        wakeTime: Number,
+        sleepTime: Number
+    }],
+    calendars: [{
+        id: String,
+        name: String,
+        color: String,
+        url: String,
+        isExternal: { type: Boolean, default: false }
+    }]
+  },
   friends: [friendSchema],
   dailyCooldowns: { type: Map, of: String },
   activityLogs: [activitySchema],
   notifications: [notificationSchema],
+  dailyIntent: {
+    energy: String,
+    persona: String,
+    time: String,
+    date: String
+  },
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
