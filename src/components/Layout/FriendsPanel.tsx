@@ -8,7 +8,7 @@ import { useStudyStoreContext } from '@/hooks/useStudyStoreContext';
 import { toast } from 'sonner';
 
 interface Props {
-    open: boolean; onClose: () => void; user: any; friends: any[]; onAdd: (c: string) => any; onRemove: (c: string) => void;
+    open: boolean; onClose: () => void; user: any; friends: any[]; onAdd: (c: string) => any; onRemove: (c: string) => Promise<any>;
 }
 
 export const FriendsPanel = ({ open, onClose, user, friends, onAdd, onRemove }: Props) => {

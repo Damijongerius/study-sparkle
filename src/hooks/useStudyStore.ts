@@ -51,9 +51,24 @@ export const useStudyStore = (username?: string) => {
   }, [username]);
 
   return {
-    ...state, stickers: STICKERS, pendingSticker, isLoading, updateState,
-    ...plans, ...tasks, ...stickers, ...agenda, ...notifications, ...activity,
+    ...state, 
+    username,
+    stickers: STICKERS, 
+    pendingSticker, 
+    pendingStickerData: STICKERS.find(s => s.id === pendingSticker),
+    isLoading, 
+    updateState,
+    ...plans, 
+    ...tasks, 
+    ...stickers, 
+    ...agenda, 
+    ...notifications, 
+    ...activity,
     addPoints: (pts: number, mins: number) => updateState(p => ({ ...p, totalPoints: p.totalPoints + pts, totalStudyMinutes: p.totalStudyMinutes + mins, studySessions: p.studySessions + 1 })),
+    deductPoints: (amount: number, reason: string) => {
+        updateState(p => ({ ...p, totalPoints: Math.max(0, p.totalPoints - amount) }));
+        activity.addActivity('point_deduction', { amount, reason });
+    },
     logPause: () => updateState(p => ({ ...p, totalPoints: Math.max(0, p.totalPoints - 5) })),
     initiatePurchase: (id: string) => { if(stickers.canPurchaseToday(id)) { setPendingSticker(id); return true; } return false; },
     confirmPurchase: (cardId: string) => { const res = stickers.confirmPurchase(cardId); if(res) setPendingSticker(null); return res; },
@@ -65,3 +80,5 @@ export const useStudyStore = (username?: string) => {
     }
   };
 };
+
+export type StudyStore = ReturnType<typeof useStudyStore>;

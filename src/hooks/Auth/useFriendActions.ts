@@ -4,7 +4,7 @@ import type { User, Friend } from '@/types';
 
 export const useFriendActions = (
   setUser: (u: User | null) => void,
-  setFriends: (f: Friend[]) => void
+  setFriends: React.Dispatch<React.SetStateAction<Friend[]>>
 ) => {
   const addFriend = useCallback(async (code: string) => {
     try {

@@ -28,6 +28,24 @@ export type {
   StudyState,
 } from './study';
 
+// Agenda types
+export type {
+  AvailabilityCategory,
+  AvailabilitySlot,
+  AgendaItemType,
+  Calendar,
+  AgendaItem,
+  AgendaAction,
+  AgendaSettings,
+} from './agenda';
+
+// Planner types
+export type {
+  PlanStatus,
+  Task,
+  Plan,
+} from './planner';
+
 export {
   ALL_CATEGORIES,
   CATEGORY_LABELS,
@@ -38,4 +56,3 @@ export type {
   AuthStore,
   StudyStore,
 } from './store';
-

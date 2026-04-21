@@ -10,7 +10,7 @@ import { FriendsPanel } from './Layout/FriendsPanel';
 
 interface Props {
   children: React.ReactNode; user: any; friends: any[]; onLogout: () => void;
-  onAddFriend: (c: string) => any; onRemoveFriend: (c: string) => void;
+  onAddFriend: (c: string) => any; onRemoveFriend: (c: string) => Promise<any>;
 }
 
 const Layout = ({ children, user, friends, onLogout, onAddFriend, onRemoveFriend }: Props) => {

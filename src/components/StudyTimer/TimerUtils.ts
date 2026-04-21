@@ -23,6 +23,10 @@ export interface TimerState {
 
 export const STORAGE_KEY = 'study-timer-state';
 
+export const calculatePoints = (minutes: number, effectiveness: number) => {
+    return Math.floor(minutes * (effectiveness / 5) * 10);
+};
+
 export const saveTimerState = (state: TimerState) => localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 export const loadTimerState = (): TimerState | null => {
     const s = localStorage.getItem(STORAGE_KEY);

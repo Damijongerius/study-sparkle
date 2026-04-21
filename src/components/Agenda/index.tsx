@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStudyStoreContext } from '@/hooks/useStudyStoreContext';
-import { AgendaGrid } from './Agenda/AgendaGrid';
-import { AgendaSettingsView } from './Agenda/AgendaSettingsView';
-import { AgendaDialogs } from './Agenda/AgendaDialogs';
-import { HOUR_HEIGHT, ACTION_COLORS } from './Agenda/AgendaUtils';
+import { AgendaGrid } from './AgendaGrid';
+import { AgendaSettingsView } from './AgendaSettingsView';
+import { AgendaDialogs } from './AgendaDialogs';
+import { HOUR_HEIGHT, ACTION_COLORS } from './AgendaUtils';
 
 interface AgendaProps {
     view?: 'calendar' | 'settings';
@@ -13,7 +13,8 @@ interface AgendaProps {
     setWeekStart: (date: Date) => void;
 }
 
-export const AgendaComponent = ({ view: externalView, onViewChange, weekStart }: AgendaProps) => {
+/** Main Agenda Component */
+export function AgendaComponent({ view: externalView, onViewChange, weekStart }: AgendaProps) {
   const store = useStudyStoreContext();
   const [internalView, setInternalView] = useState<'calendar' | 'settings'>('calendar');
   const view = externalView || internalView;
@@ -73,7 +74,13 @@ export const AgendaComponent = ({ view: externalView, onViewChange, weekStart }:
       <div className="relative">
           {view === 'calendar' ? (
               <div key="calendar">
-                  <AgendaGrid weekDays={weekDays} currentTime={currentTime} preview={preview} onGridClick={(date, day, hour) => { setNewItem({ ...newItem, date, day, startHour: hour }); setIsCreateOpen(true); }} startInteraction={startInteraction} />
+                  <AgendaGrid 
+                    weekDays={weekDays} 
+                    currentTime={currentTime} 
+                    preview={preview} 
+                    onGridClick={(date, day, hour) => { setNewItem({ ...newItem, date, day, startHour: hour }); setIsCreateOpen(true); }} 
+                    startInteraction={startInteraction} 
+                  />
               </div>
           ) : (
               <div key="settings">
@@ -84,4 +91,4 @@ export const AgendaComponent = ({ view: externalView, onViewChange, weekStart }:
       <AgendaDialogs isOpen={isCreateOpen} onOpenChange={setIsCreateOpen} newItem={newItem} setNewItem={setNewItem} />
     </div>
   );
-};
+}

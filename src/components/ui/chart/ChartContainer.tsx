@@ -12,10 +12,7 @@ ${prefix} [data-chart=${id}] {
 ${colorConfig.map(([key, item]) => {
     const color = item.theme?.[theme as keyof typeof item.theme] || item.color;
     return color ? `  --color-${key}: ${color};` : null;
-  }).join("
-")}
-}`).join("
-") }} />
+  }).join("\n")}\n}`).join("\n") }} />
   );
 };
 

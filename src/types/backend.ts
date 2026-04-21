@@ -1,4 +1,4 @@
-import type {ActivityType, Notification, StickerCard, StickerCategory, PlanStatus} from "@/types/study.ts";
+import type {ActivityType, Notification, StickerCard, StickerCategory, PlanStatus, AvailabilityCategory} from "@/types/study.ts";
 
 type BackendStickerEntry = {
     stickerId: string;
@@ -73,20 +73,24 @@ type BackendData = {
     activityLogs?: BackendActivity[];
     notifications?: BackendNotificationType[];
     plans?: BackendPlan[];
-    availability?: Array<{ day: number; startHour: number; category: import('@/types/study').AvailabilityCategory }>;
+    availability?: Array<{ day: number; startHour: number; category: AvailabilityCategory }>;
     agendaItems?: Array<{
         id: string;
         title: string;
         day: number;
+        date: string;
         startTime: number;
         endTime: number;
         type: 'task' | 'custom';
         actionId?: string;
+        calendarId?: string;
     }>;
     agendaSettings?: {
         actions: Array<{ id: string; label: string; color: string; isSystem: boolean }>;
         outOfAgenda: Array<{ day: number; wakeTime: number; sleepTime: number }>;
+        calendars: Array<{ id: string; name: string; color: string; isExternal: boolean; url?: string }>;
     };
+    dailyIntent?: { energy: string; persona: string; time: string; date: string; };
 };
 
 export type {

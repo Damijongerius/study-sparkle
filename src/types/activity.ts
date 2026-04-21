@@ -1,4 +1,4 @@
-export type ActivityType = 'study_complete' | 'study_pause' | 'sticker_purchase' | 'card_complete' | 'card_redeem' | 'journal_entry' | 'reminder_set' | 'reminder_triggered';
+export type ActivityType = 'study_complete' | 'study_pause' | 'sticker_purchase' | 'card_complete' | 'card_redeem' | 'journal_entry' | 'reminder_set' | 'reminder_triggered' | 'point_deduction';
 
 export interface ActivityLog {
   id: string;

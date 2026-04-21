@@ -1,5 +1,5 @@
-import type { StudyState, StickerCard, StickerCategory, OwnedSticker } from '@/types';
-import { BackendData, BackendCard, BackendActivity, BackendNotificationType, BackendPlan, BackendTask, BackendStickerEntry } from "@/types/backend.ts";
+import type { StudyState, StickerCard, StickerCategory, OwnedSticker, DailyCooldown, AgendaItem } from '@/types';
+import { BackendData, BackendCard, BackendActivity, BackendPlan, BackendTask, BackendStickerEntry } from "@/types/backend.ts";
 import { DEFAULT_ACTIONS, DEFAULT_OUT_OF_AGENDA, DEFAULT_CALENDARS, DEFAULT_AGENDA_SETTINGS } from './useStudyStoreData';
 
 const fixDates = (item: any, keys: string[]) => {
@@ -29,22 +29,32 @@ export const convertBackendData = (backendData: BackendData): StudyState => {
         allowedCategories: card.allowedCategories && card.allowedCategories.length > 0 ? card.allowedCategories : undefined,
     });
 
+    const cooldowns: DailyCooldown = {};
+    if (backendData.dailyCooldowns) {
+        Object.entries(backendData.dailyCooldowns).forEach(([k, v]) => {
+            cooldowns[k] = v.toString();
+        });
+    }
+
     return {
         totalPoints: backendData.totalPoints || 0,
         ownedStickers: (backendData.ownedStickers || []).map((s: any) => ({ stickerId: s.stickerId, earnedAt: new Date(s.earnedAt) })),
         totalStudyMinutes: backendData.totalStudyMinutes || 0,
         studySessions: backendData.studySessions || 0,
         stickerCards: (backendData.stickerCards || []).map(convertCard),
-        dailyCooldowns: backendData.dailyCooldowns || {},
+        dailyCooldowns: cooldowns,
         activityLogs: (backendData.activityLogs || []).map((l: any) => ({ ...l, timestamp: new Date(l.timestamp) })),
         reminders: [],
         notifications: (backendData.notifications || []).map((n: any) => ({ ...n, createdAt: new Date(n.createdAt) })),
         plans: (backendData.plans || []).map(fixPlanDates),
         availability: backendData.availability || [],
-        agendaItems: backendData.agendaItems || [],
+        agendaItems: (backendData.agendaItems || []).map((it: any) => ({
+            ...it,
+            date: it.date || new Date().toISOString().split('T')[0]
+        })) as AgendaItem[],
         agendaSettings: backendData.agendaSettings ? {
             ...backendData.agendaSettings,
-            actions: backendData.agendaSettings.actions || DEFAULT_ACTIONS,
+            actions: backendData.agendaSettings.actions as any || DEFAULT_ACTIONS,
             outOfAgenda: backendData.agendaSettings.outOfAgenda || DEFAULT_OUT_OF_AGENDA,
             calendars: backendData.agendaSettings.calendars || DEFAULT_CALENDARS
         } : DEFAULT_AGENDA_SETTINGS,
