@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStudyStoreContext } from '@/hooks/useStudyStoreContext';
-import { AgendaGrid } from './Agenda/AgendaGrid';
-import { AgendaSettingsView } from './Agenda/AgendaSettingsView';
-import { AgendaDialogs } from './Agenda/AgendaDialogs';
-import { HOUR_HEIGHT, ACTION_COLORS } from './Agenda/AgendaUtils';
+import { AgendaGrid } from './AgendaGrid';
+import { AgendaSettingsView } from './AgendaSettingsView';
+import { AgendaDialogs } from './AgendaDialogs';
+import { HOUR_HEIGHT, ACTION_COLORS } from './AgendaUtils';
 
 interface AgendaProps {
     view?: 'calendar' | 'settings';
