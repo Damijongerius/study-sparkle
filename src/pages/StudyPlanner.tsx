@@ -4,7 +4,7 @@ import { useStudyStoreContext } from '@/hooks/useStudyStoreContext';
 import { toast } from 'sonner';
 import { sfx } from '@/lib/sfx';
 import { ExamPlannerWizard } from '@/components/ExamPlannerWizard';
-import { AgendaComponent } from '@/components/AgendaComponent';
+import { AgendaComponent } from '@/components/Agenda';
 import { RoadmapView } from '@/features/Planner/RoadmapView';
 import { ExecutionFlowView } from '@/features/Planner/ExecutionFlowView';
 import { PlannerHeader } from '@/features/Planner/PlannerHeader';
