@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLocation, Link } from 'react-router-dom';
-import { Home, Timer, Calendar } from 'lucide-react';
+import { Home, Timer, Calendar, Scan } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStudyStoreContext } from '@/hooks/useStudyStoreContext';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,12 @@ const Layout = ({ children, user, friends, onLogout, onAddFriend, onRemoveFriend
   const [showFriends, setShowFriends] = useState(false);
   const loc = useLocation();
   const store = useStudyStoreContext();
-  const nav = [{ l: 'Home', p: '/', i: Home }, { l: 'Study', p: '/study', i: Timer }, { l: 'Planner', p: '/planner', i: Calendar }];
+  const nav = [
+    { l: 'Home', p: '/', i: Home },
+    { l: 'Study', p: '/study', i: Timer },
+    { l: 'Planner', p: '/planner', i: Calendar },
+    { l: 'Scanner', p: '/scanner', i: Scan }
+  ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

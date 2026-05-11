@@ -11,6 +11,7 @@ import Layout from "./components/Layout";
 import StudyBuddy from "./pages/StudyBuddy";
 import StudySession from "./pages/StudySession";
 import StudyPlanner from "./pages/StudyPlanner";
+import PdfScanner from "./pages/PdfScanner";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import VersionBadge from "@/components/VersionBadge";
@@ -49,6 +50,7 @@ const AuthenticatedApp = () => {
                         <Route path="/" element={<StudyBuddy />} />
                         <Route path="/study" element={<StudySession />} />
                         <Route path="/planner" element={<StudyPlanner />} />
+                        <Route path="/scanner" element={<PdfScanner />} />
                         <Route path="*" element={<NotFound />} />
                     </Routes>
                 </Layout>

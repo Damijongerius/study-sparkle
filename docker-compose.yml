@@ -64,6 +64,8 @@ services:
       REDIS_URL: redis://redis:6379
       SESSION_SECRET: study-buddy-secret-change-in-production
       PORT: 3001
+      OLLAMA_API_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: gemma4:e4b
     depends_on:
       mongodb:
         condition: service_healthy

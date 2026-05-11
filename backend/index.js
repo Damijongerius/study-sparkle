@@ -16,6 +16,7 @@ const cardsRoutes = require('./routes/cards');
 const friendsRoutes = require('./routes/friends');
 const giftCardRoutes = require('./routes/giftCard');
 const plannerRoutes = require('./routes/planner');
+const scannerRoutes = require('./routes/scanner');
 
 const app = express();
 
@@ -73,6 +74,7 @@ app.use('/api/cards', cardsRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/gift-card', giftCardRoutes);
 app.use('/api/planner', plannerRoutes);
+app.use('/api/scanner', scannerRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);

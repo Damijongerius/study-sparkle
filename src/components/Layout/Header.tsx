@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { User, Users, LogOut, Home, Timer, Calendar, Heart } from 'lucide-react';
+import { User, Users, LogOut, Home, Timer, Calendar, Heart, Scan } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -11,7 +11,12 @@ interface Props {
 
 export const Header = ({ user, friends, onLogout, onOpenFriends, hasUnread }: Props) => {
   const loc = useLocation();
-  const nav = [{ l: 'Home', p: '/', i: Home }, { l: 'Study', p: '/study', i: Timer }, { l: 'Planner', p: '/planner', i: Calendar }];
+  const nav = [
+    { l: 'Home', p: '/', i: Home },
+    { l: 'Study', p: '/study', i: Timer },
+    { l: 'Planner', p: '/planner', i: Calendar },
+    { l: 'Scanner', p: '/scanner', i: Scan }
+  ];
 
   return (
     <header className="py-6 px-4 border-b bg-card/50 backdrop-blur-sm sticky top-0 z-30">

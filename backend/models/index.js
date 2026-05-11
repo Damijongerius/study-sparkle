@@ -140,11 +140,37 @@ const userDataSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
+const scannedPDFSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  filename: String,
+  originalName: String,
+  indexedAt: { type: Date, default: Date.now },
+  chapters: [{
+    title: String,
+    isAiDissected: { type: Boolean, default: false },
+    blocks: [{
+      type: { type: String, enum: ['text', 'image'], required: true },
+      content: String,
+      style: {
+        isBold: { type: Boolean, default: false },
+        isSpecial: { type: Boolean, default: false }
+      },
+      imageDescription: String
+    }]
+  }],
+  metadata: {
+    pageCount: Number,
+    totalBlocks: Number
+  }
+}, { timestamps: true });
+
 const User = mongoose.model('User', userSchema);
 const UserData = mongoose.model('UserData', userDataSchema);
+const ScannedPDF = mongoose.model('ScannedPDF', scannedPDFSchema);
 
 module.exports = {
   User,
-  UserData
+  UserData,
+  ScannedPDF
 };
 
