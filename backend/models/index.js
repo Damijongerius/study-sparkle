@@ -144,6 +144,14 @@ const scannedPDFSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   filename: String,
   originalName: String,
+  status: { 
+    type: String, 
+    enum: ['processing', 'completed', 'failed'], 
+    default: 'processing' 
+  },
+  progress: { type: Number, default: 0 },
+  statusMessage: { type: String, default: '' },
+  currentStage: { type: String, default: 'metadata' },
   indexedAt: { type: Date, default: Date.now },
   chapters: [{
     title: String,
@@ -158,9 +166,26 @@ const scannedPDFSchema = new mongoose.Schema({
       imageDescription: String
     }]
   }],
+  rawChapters: [{
+    title: String,
+    blocks: [{
+      type: { type: String, enum: ['text', 'image'], required: true },
+      content: String,
+      style: {
+        isBold: { type: Boolean, default: false },
+        isSpecial: { type: Boolean, default: false }
+      }
+    }]
+  }],
+  images: [{
+    name: String,
+    path: String,
+    element_index: Number
+  }],
   metadata: {
     pageCount: Number,
-    totalBlocks: Number
+    totalBlocks: Number,
+    source: String
   }
 }, { timestamps: true });
 

@@ -1,0 +1,6 @@
+docling>=2.0.0
+docling-core
+pandas
+tabulate
+pillow
+pypdf

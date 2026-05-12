@@ -5,6 +5,10 @@ const { extractText, identifyChaptersAdvanced, extractEnrichedText } = require('
 const { generateFlashcards, generateTest, dissectChapterContent } = require('../utils/aiAssistant');
 const { ScannedPDF } = require('../models');
 const { requireAuth } = require('../middleware/auth');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const { parsePdfWithDocling } = require('../utils/doclingParser');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -12,7 +16,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.get('/', requireAuth, async (req, res) => {
     try {
         const pdfs = await ScannedPDF.find({ userId: req.session.userId })
-            .select('originalName indexedAt metadata chapters.title')
+            .select('originalName indexedAt metadata chapters.title status progress')
             .sort({ indexedAt: -1 });
         res.json(pdfs);
     } catch (error) {
@@ -31,6 +35,100 @@ router.get('/:id', requireAuth, async (req, res) => {
     }
 });
 
+// Helper function for background processing
+const processInBackground = async (pdfId, buffer, originalName) => {
+    let tempFilePath = null;
+    const outputDir = path.join(__dirname, '..', 'public', 'scanned_images');
+    
+    try {
+        await ScannedPDF.updateOne({ _id: pdfId }, { $set: { progress: 5 } });
+
+        tempFilePath = path.join(os.tmpdir(), `upload_${Date.now()}_${originalName}`);
+        fs.writeFileSync(tempFilePath, buffer);
+
+        // 1. Convert PDF using Docling (Incremental Page Processing)
+        const doclingResult = await parsePdfWithDocling(
+            tempFilePath, 
+            outputDir, 
+            'json',
+            async (percent, message, stage) => {
+                await ScannedPDF.updateOne(
+                    { _id: pdfId }, 
+                    { $set: { 
+                        progress: percent, 
+                        statusMessage: message,
+                        currentStage: stage 
+                    } }
+                );
+            }
+        );
+
+        const blocks = doclingResult.blocks || [];
+        const images = doclingResult.images || [];
+
+        // 2. Identify Chapters based on Docling's structured blocks
+        let chapters = [];
+        let currentChapter = { title: 'Introduction', blocks: [] };
+
+        blocks.forEach(block => {
+            if (block.type === 'heading') {
+                if (currentChapter.blocks.length > 0) chapters.push(currentChapter);
+                currentChapter = { 
+                    title: block.content, 
+                    isAiDissected: false,
+                    blocks: [] 
+                };
+            } else {
+                // Map Docling block types to our model
+                let type = 'text';
+                if (block.type === 'image') type = 'image';
+                
+                currentChapter.blocks.push({
+                    type: type,
+                    content: block.content,
+                    style: { isBold: false, isSpecial: block.type === 'table' } // Mark tables as special
+                });
+            }
+        });
+        
+        if (currentChapter.blocks.length > 0) chapters.push(currentChapter);
+        if (chapters.length === 0) {
+            chapters.push({
+                title: 'Full Document',
+                isAiDissected: false,
+                blocks: [{ type: 'text', content: 'No content identified.', style: { isBold: false, isSpecial: false } }]
+            });
+        }
+
+        // Save structure to BOTH chapters and rawChapters
+        await ScannedPDF.updateOne({ _id: pdfId }, { 
+            $set: { 
+                chapters: chapters,
+                rawChapters: chapters,
+                images: images,
+                'metadata.totalBlocks': chapters.reduce((acc, c) => acc + c.blocks.length, 0),
+                'metadata.source': 'docling-structured',
+                status: 'completed',
+                progress: 100
+            } 
+        });
+
+        console.log(`Docling structured extraction completed for: ${originalName}.`);
+
+    } catch (error) {
+        console.error('Background processing failed:', error);
+        await ScannedPDF.updateOne({ _id: pdfId }, { 
+            $set: { status: 'failed', progress: 0 } 
+        });
+    } finally {
+        if (tempFilePath && fs.existsSync(tempFilePath)) {
+            try { fs.unlinkSync(tempFilePath); } catch (e) {}
+        }
+    }
+};
+
+
+
 // Upload PDF and extract chapters with dissection
 router.post('/upload', requireAuth, upload.single('pdf'), async (req, res) => {
     try {
@@ -38,72 +136,34 @@ router.post('/upload', requireAuth, upload.single('pdf'), async (req, res) => {
             return res.status(400).json({ error: 'No PDF file uploaded' });
         }
 
-        console.log('Processing PDF (Advanced Mode):', req.file.originalname);
-        const enrichedItems = await extractEnrichedText(req.file.buffer);
-        const rawChapters = identifyChaptersAdvanced(enrichedItems);
-        // Structural dissection (Instant, no AI)
-        const chapters = rawChapters.map(raw => ({
-            title: raw.title,
-            isAiDissected: false,
-            blocks: raw.content.split('\n\n').filter(b => b.trim()).map(block => ({
-                type: 'text',
-                content: block.trim(),
-                style: { isBold: false, isSpecial: false }
-            }))
-        }));
-
+        console.log('Queuing PDF for Docling processing:', req.file.originalname);
+        
         const newPdf = new ScannedPDF({
             userId: req.session.userId,
             originalName: req.file.originalname,
-            chapters: chapters,
-            metadata: {
-                pageCount: 0,
-                totalBlocks: chapters.reduce((acc, c) => acc + c.blocks.length, 0)
-            }
+            status: 'processing',
+            progress: 5,
+            metadata: { totalBlocks: 0 }
         });
 
         await newPdf.save();
 
-        // Fire and forget AI dissection in the background
-        const processBackgroundAi = async () => {
-            try {
-                for (let i = 0; i < newPdf.chapters.length; i++) {
-                    const chapter = newPdf.chapters[i];
-                    const combinedText = chapter.blocks.map(b => b.content).join('\n');
-                    const dissectedBlocks = await dissectChapterContent(combinedText);
-                    
-                    // Update database
-                    await ScannedPDF.updateOne(
-                        { _id: newPdf._id, 'chapters._id': chapter._id },
-                        { 
-                            $set: { 
-                                'chapters.$.blocks': dissectedBlocks,
-                                'chapters.$.isAiDissected': true 
-                            }
-                        }
-                    );
-                    console.log(`Background AI dissection complete for: ${chapter.title}`);
-                }
-            } catch (err) {
-                console.error('Background AI dissection failed:', err);
-            }
-        };
-
-        processBackgroundAi(); // Trigger but don't await
+        // Start background processing
+        processInBackground(newPdf._id, req.file.buffer, req.file.originalname);
 
         res.json({
-            message: 'PDF uploaded and structurally indexed. AI processing in background.',
+            message: 'Upload successful. Processing in background.',
             id: newPdf._id,
-            chapters: newPdf.chapters.map(c => ({
-                title: c.title,
-                blockCount: c.blocks.length
-            }))
+            status: 'processing'
         });
+
     } catch (error) {
-        console.error('Upload error:', error);
+        console.error('Upload route error:', error);
         res.status(500).json({ error: error.message });
     }
 });
+
+
 
 // Manually dissect a chapter using AI
 router.post('/dissect-chapter', requireAuth, async (req, res) => {

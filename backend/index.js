@@ -34,11 +34,14 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
+const path = require('path');
+
 app.use(cors(corsOptions));
 // Enable preflight for all routes
 app.options('*', cors(corsOptions));
 
 app.use(express.json());
+app.use('/scanned_images', express.static(path.join(__dirname, 'public', 'scanned_images')));
 
 // Initialize Redis and session after CORS
 const redisClient = createRedisClient();
