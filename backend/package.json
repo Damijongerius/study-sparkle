@@ -19,6 +19,7 @@
     "passport-google-oauth20": "^2.0.0",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^3.11.174",
-    "redis": "^4.6.12"
+    "redis": "^4.6.12",
+    "socket.io": "^4.8.3"
   }
 }

@@ -36,7 +36,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // Helper function for background processing
-const processInBackground = async (pdfId, buffer, originalName) => {
+const processInBackground = async (pdfId, buffer, originalName, userId, io) => {
     let tempFilePath = null;
     const outputDir = path.join(__dirname, '..', 'public', 'scanned_images');
     
@@ -60,6 +60,16 @@ const processInBackground = async (pdfId, buffer, originalName) => {
                         currentStage: stage 
                     } }
                 );
+
+                // Real-time update via Socket
+                if (io) {
+                    io.to(`user_${userId}`).emit('scanner_progress', {
+                        pdfId,
+                        progress: percent,
+                        statusMessage: message,
+                        currentStage: stage
+                    });
+                }
             }
         );
 
@@ -73,9 +83,17 @@ const processInBackground = async (pdfId, buffer, originalName) => {
         blocks.forEach(block => {
             if (block.type === 'heading') {
                 if (currentChapter.blocks.length > 0) chapters.push(currentChapter);
+                
+                // Extract level from label (e.g. "heading_level_2" -> 2)
+                let level = 1;
+                const match = block.label?.match(/level_(\d+)/i);
+                if (match) level = parseInt(match[1]);
+                
                 currentChapter = { 
                     title: block.content, 
                     isAiDissected: false,
+                    page: block.page || 1,
+                    level: level,
                     blocks: [] 
                 };
             } else {
@@ -86,7 +104,9 @@ const processInBackground = async (pdfId, buffer, originalName) => {
                 currentChapter.blocks.push({
                     type: type,
                     content: block.content,
-                    style: { isBold: false, isSpecial: block.type === 'table' } // Mark tables as special
+                    page: block.page,
+                    metadata: block.metadata,
+                    style: { isBold: false, isSpecial: block.type === 'table' }
                 });
             }
         });
@@ -96,7 +116,8 @@ const processInBackground = async (pdfId, buffer, originalName) => {
             chapters.push({
                 title: 'Full Document',
                 isAiDissected: false,
-                blocks: [{ type: 'text', content: 'No content identified.', style: { isBold: false, isSpecial: false } }]
+                page: 1,
+                blocks: [{ type: 'text', content: 'No content identified.', page: 1, style: { isBold: false, isSpecial: false } }]
             });
         }
 
@@ -113,13 +134,21 @@ const processInBackground = async (pdfId, buffer, originalName) => {
             } 
         });
 
+        if (io) {
+            io.to(`user_${userId}`).emit('scanner_complete', { pdfId });
+        }
+
         console.log(`Docling structured extraction completed for: ${originalName}.`);
 
     } catch (error) {
         console.error('Background processing failed:', error);
         await ScannedPDF.updateOne({ _id: pdfId }, { 
-            $set: { status: 'failed', progress: 0 } 
+            $set: { status: 'failed', progress: 0, statusMessage: error.message } 
         });
+
+        if (io) {
+            io.to(`user_${userId}`).emit('scanner_failed', { pdfId, error: error.message });
+        }
     } finally {
         if (tempFilePath && fs.existsSync(tempFilePath)) {
             try { fs.unlinkSync(tempFilePath); } catch (e) {}
@@ -149,7 +178,8 @@ router.post('/upload', requireAuth, upload.single('pdf'), async (req, res) => {
         await newPdf.save();
 
         // Start background processing
-        processInBackground(newPdf._id, req.file.buffer, req.file.originalname);
+        const io = req.app.get('io');
+        processInBackground(newPdf._id, req.file.buffer, req.file.originalname, req.session.userId, io);
 
         res.json({
             message: 'Upload successful. Processing in background.',

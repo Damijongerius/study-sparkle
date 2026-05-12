@@ -66,12 +66,25 @@ services:
       PORT: 3001
       OLLAMA_API_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: gemma4:e4b
+      # Docling model cache path
+      HF_HOME: /app/docling_cache
+    volumes:
+      - ./backend:/app
+      - docling_cache:/app/docling_cache
     depends_on:
       mongodb:
         condition: service_healthy
       redis:
         condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
 volumes:
   mongodb_data:
   redis_data:
+  docling_cache:

@@ -163,6 +163,8 @@ const scannedPDFSchema = new mongoose.Schema({
         isBold: { type: Boolean, default: false },
         isSpecial: { type: Boolean, default: false }
       },
+      metadata: mongoose.Schema.Types.Mixed,
+      page: Number,
       imageDescription: String
     }]
   }],
@@ -174,7 +176,9 @@ const scannedPDFSchema = new mongoose.Schema({
       style: {
         isBold: { type: Boolean, default: false },
         isSpecial: { type: Boolean, default: false }
-      }
+      },
+      metadata: mongoose.Schema.Types.Mixed,
+      page: Number
     }]
   }],
   images: [{

@@ -3,6 +3,7 @@
  */
 
 export interface User {
+  id: string;
   username: string;
   friendCode: string;
   createdAt: Date;

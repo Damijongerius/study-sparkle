@@ -84,4 +84,31 @@ app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`API running on port ${PORT}`));
+const http = require('http');
+const { Server } = require('socket.io');
+
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: corsOptions
+});
+
+// Make io accessible globally via app
+app.set('io', io);
+
+io.on('connection', (socket) => {
+    console.log(`Socket connected: ${socket.id}`);
+    
+    // Join a room for the user to receive private updates
+    socket.on('join', (userId) => {
+        if (userId) {
+            socket.join(`user_${userId}`);
+            console.log(`Socket ${socket.id} joined room user_${userId}`);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`Socket disconnected: ${socket.id}`);
+    });
+});
+
+server.listen(PORT, () => console.log(`API running on port ${PORT} with WebSockets enabled`));
